@@ -1,7 +1,7 @@
-﻿#NoEnv  ; Recommended for performance and compatibility with future AutoHotkey releases.
-#Warn  ; Enable warnings to assist with detecting common errors.
-SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
-SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
+﻿;#NoEnv  ; Recommended for performance and compatibility with future AutoHotkey releases.
+;#Warn  ; Enable warnings to assist with detecting common errors.
+;SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
+;SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 
 global listOfEvents := []
 
@@ -9,19 +9,19 @@ MajorVersion := DllCall("GetVersion") & 0xFF                ; 10
 MinorVersion := DllCall("GetVersion") >> 8 & 0xFF           ; 0
 BuildNumber  := DllCall("GetVersion") >> 16 & 0xFFFF        ; 10532
 
-MsgBox % "MajorVersion:`t" MajorVersion "`n"
-       . "MinorVersion:`t" MinorVersion "`n"
-       . "BuildNumber:`t"  BuildNumber
+;MsgBox % "MajorVersion:`t" MajorVersion "`n"
+;       . "MinorVersion:`t" MinorVersion "`n"
+;       . "BuildNumber:`t"  BuildNumber
 	   
 	   
 	   
 if (BuildNumber <= 17134) {
-	hVirtualDesktopAccessor := DllCall("LoadLibrary", Str, A_ScriptDir . "\VirtualDesktopAccessor_1803_and_lower.dll", "Ptr") 
+	hVirtualDesktopAccessor := DllCall("LoadLibrary", Str, A_LineFile . "\VirtualDesktopAccessor_1803_and_lower.dll", "Ptr") 
 }
 if (BuildNumber > 17134) {
-	hVirtualDesktopAccessor := DllCall("LoadLibrary", Str, A_ScriptDir . "\VirtualDesktopAccessor_1809_and_above.dll", "Ptr") 
-
+	hVirtualDesktopAccessor := DllCall("LoadLibrary", Str, A_LineFile . "\VirtualDesktopAccessor_1809_and_above.dll", "Ptr") 
 }
+
 ; #Include shell_spy.ahk
 
 DetectHiddenWindows, On

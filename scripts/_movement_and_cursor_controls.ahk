@@ -3,11 +3,6 @@
 SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 
-
-; caps lock control key swap
-$Ctrl::CapsLock
-$CapsLock::Ctrl
-
 ; semi-VIM Keybinding for windows
 ; home row key bindings.
 >!j::
@@ -87,7 +82,7 @@ Return
    Send, {Shift down}{Up down}{Up up}{Shift up}
 Return
 
-
+; :todo,  make this configurable.
 <!Enter::
    Run, ubuntu
 return
