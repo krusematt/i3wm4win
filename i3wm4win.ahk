@@ -10,9 +10,9 @@ MsgBox % A_LineFile
 
 
 ; Initialize our root i3wm4win object.  Set it as a global so we can use this object anywhere.
-global i3wm4win := new i3wm4win_root()
+global i3wm4win := new i3wm4win_bootstrap()
 
-class i3wm4win_root {
+class i3wm4win_bootstrap {
 	count := 0
     CtrlCapsSwap := 0
 	MovementHotKeys := 0
@@ -40,7 +40,7 @@ class i3wm4win_root {
 	
 	msg() {
 		this.count ++
-		MsgBox % "count: " this.count
+		;MsgBox % "count: " this.count
 	}
 	
 	; --------------------------------- Inital Setup -------------------------------
@@ -66,27 +66,17 @@ class i3wm4win_root {
 }
 
 
-i3wm4win.msg()
 
 
 ; ------------ include all script files ------------------
-global i3wm4win
 #Include %A_ScriptDir%\scripts\_desktop_switcher.ahk
 
-some_label:
-	MsgBox some message here.
 
 #Include %A_ScriptDir%\scripts\_movement_and_cursor_controls.ahk
 
-i3wm4win.msg()
 
 
 
 #Include %A_ScriptDir%\scripts\_launcher.ahk
 #Include %A_ScriptDir%\scripts\_terminal.ahk
-
-
-;#Include %A_ScriptDir%\scripts\_desktop_switcher.ahk
-
-
-i3wm4win.msg()
+#Include %A_ScriptDir%\scripts\_ctrl_caps_swap.ahk
