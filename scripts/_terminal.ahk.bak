@@ -1,0 +1,9 @@
+﻿#if i3wm4win.settings["LauncherCMD"]
+<!Enter::
+   launchTerminal()
+return
+launchTerminal() {
+      MsgBox "launch the terminal"
+   cmd := i3wm4win.settings["LauncherCMD"]
+   Run, %cmd%
+}

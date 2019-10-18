@@ -5,115 +5,265 @@
 
 global listOfEvents := []
 
-MajorVersion := DllCall("GetVersion") & 0xFF                ; 10
-MinorVersion := DllCall("GetVersion") >> 8 & 0xFF           ; 0
-BuildNumber  := DllCall("GetVersion") >> 16 & 0xFFFF        ; 10532
 
-;MsgBox % "MajorVersion:`t" MajorVersion "`n"
-;       . "MinorVersion:`t" MinorVersion "`n"
-;       . "BuildNumber:`t"  BuildNumber
-	   
-	   
-;  load the correct DLL based on the version of windows.  i.e.  < 1803 vs  > 1803    different lib required.
-if (BuildNumber <= 17134) {
-	hVirtualDesktopAccessor := DllCall("LoadLibrary", Str, A_LineFile . "\VirtualDesktopAccessor_1803_and_lower.dll", "Ptr") 
+global desktopSwitcher := new CDesktopSwitcher()
+
+
+
+
+; ----------------- Desktop Switcher Class
+class CDesktopSwitcher {
+
+	activeWindowByDesktop := {}
+
+	__New() {
+		MsgBox inside the __new method
+		this.hwnd:=WinExist("ahk_pid " . DllCall("GetCurrentProcessId","Uint"))
+		this.hwnd+=0x1000<<32
+		
+		this.InitializeDLL()
+		this.SetupExplorerListener()
+		this.SetupDesktopChangeListener()
+		this.SetHotkeyState()
+	}
+	
+	InitializeDLL() {
+		MajorVersion := DllCall("GetVersion") & 0xFF                ; 10
+		MinorVersion := DllCall("GetVersion") >> 8 & 0xFF           ; 0
+		BuildNumber  := DllCall("GetVersion") >> 16 & 0xFFFF        ; 10532
+		MsgBox % "MajorVersion:`t" MajorVersion "`n" "MinorVersion:`t" MinorVersion "`n" "BuildNumber:`t"  BuildNumber "`n" "dir:" A_ScriptDir
+		;  load the correct DLL based on the version of windows.  i.e.  < 1803 vs  > 1803    different lib required.
+		if (BuildNumber <= 17134) {
+			this.hVirtualDesktopAccessor := DllCall("LoadLibrary", Str, A_ScriptDir . "\dll\VirtualDesktopAccessor_1803_and_lower.dll", "Ptr") 
+		}
+		if (BuildNumber > 17134) {
+			this.hVirtualDesktopAccessor := DllCall("LoadLibrary", Str, A_ScriptDir . "\dll\VirtualDesktopAccessor_1809_and_above.dll", "Ptr") 
+		}
+		
+		this.GoToDesktopNumberProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "GoToDesktopNumber", "Ptr")
+		this.GetCurrentDesktopNumberProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "GetCurrentDesktopNumber", "Ptr")
+		this.GetWindowDesktopIdProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "GetWindowDesktopId", "Ptr")
+		this.GetWindowDesktopNumberProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "GetWindowDesktopNumber", "Ptr")
+		this.IsWindowOnCurrentVirtualDesktopProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "IsWindowOnCurrentVirtualDesktop", "Ptr")
+		this.MoveWindowToDesktopNumberProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "MoveWindowToDesktopNumber", "Ptr")
+		this.RegisterPostMessageHookProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "RegisterPostMessageHook", "Ptr")
+		this.UnregisterPostMessageHookProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "UnregisterPostMessageHook", "Ptr")
+		this.IsPinnedWindowProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "IsPinnedWindow", "Ptr")
+		this.RestartVirtualDesktopAccessorProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "RestartVirtualDesktopAccessor", "Ptr")
+		; GetWindowDesktopNumberProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "GetWindowDesktopNumber", "Ptr")
+				
+	}
+	
+		; Turns On or Off hotkeys, or sets the mode
+    SetHotkeyState(){
+		fn := this.GoToDesktopNumber.Bind(this, 0)
+		hotkey, <!1, % fn		
+		fn := this.GoToDesktopNumber.Bind(this, 1)
+		hotkey, <!2, % fn 
+		fn := this.GoToDesktopNumber.Bind(this, 2)
+		hotkey, <!3, % fn  
+		fn := this.GoToDesktopNumber.Bind(this, 3)
+		hotkey, <!4, % fn  
+		fn := this.GoToDesktopNumber.Bind(this, 4)
+		hotkey, <!5, % fn  
+		fn := this.GoToDesktopNumber.Bind(this, 5)
+		hotkey, <!6, % fn  
+		fn := this.GoToDesktopNumber.Bind(this, 6)
+		hotkey, <!7, % fn  
+		fn := this.GoToDesktopNumber.Bind(this, 7)
+		hotkey, <!8, % fn  
+		fn := this.GoToDesktopNumber.Bind(this, 8)
+		hotkey, <!9, % fn  
+		fn := this.GoToDesktopNumber.Bind(this, 9)
+		hotkey, <!0, % fn  
+		fn := this.MoveCurrentWindowToDesktop.Bind(this, 0)
+		hotkey, +<!1, % fn  
+		fn := this.MoveCurrentWindowToDesktop.Bind(this, 1)
+		hotkey, +<!2, % fn  
+		fn := this.MoveCurrentWindowToDesktop.Bind(this, 2)
+		hotkey, +<!3, % fn  
+		fn := this.MoveCurrentWindowToDesktop.Bind(this, 3)
+		hotkey, +<!4, % fn  
+		fn := this.MoveCurrentWindowToDesktop.Bind(this, 4)
+		hotkey, +<!5, % fn  
+		fn := this.MoveCurrentWindowToDesktop.Bind(this, 5)
+		hotkey, +<!6, % fn  
+		fn := this.MoveCurrentWindowToDesktop.Bind(this, 6)
+		hotkey, +<!7, % fn  
+		fn := this.MoveCurrentWindowToDesktop.Bind(this, 7)
+		hotkey, +<!8, % fn  
+		fn := this.MoveCurrentWindowToDesktop.Bind(this, 8)
+		hotkey, +<!9, % fn  
+		fn := this.MoveCurrentWindowToDesktop.Bind(this, 9)
+		hotkey, +<!0, % fn  
+		fn := this.GoToPrevDesktop.Bind(this)
+		hotkey, <!-, % fn  	
+		fn := this.GotoNextDesktop.Bind(this)
+		hotkey, <!=, % fn  
+		
+    }
+
+	
+	
+	
+	SetupExplorerListener() {
+		; Restart the virtual desktop accessor when Explorer.exe crashes, or restarts (e.g. when coming from fullscreen game)
+		this.explorerRestartMsg := DllCall("user32\RegisterWindowMessage", "Str", "TaskbarCreated")
+		OnMessage(this.explorerRestartMsg, "OnExplorerRestart")
+		
+	}
+	
+	
+	SetupDesktopChangeListener() {
+		; Windows 10 desktop changes listener
+		DllCall(this.RegisterPostMessageHookProc, Int, this.hwnd, Int, 0x1400 + 30)
+		OnMessage(0x1400 + 30, "VWMess")
+	}
+	
+	
+	; ------ Desktop Operations..
+	MoveCurrentWindowToDesktop(number) {
+		WinGet, activeHwnd, ID, A
+		this.activeWindowByDesktop[number] := 0 ; Do not activate
+		DllCall(this.MoveWindowToDesktopNumberProc, UInt, activeHwnd, UInt, number)
+		; todo: make this an optional.  by default, i3wm does not automatically focus to the dekstop you're sending the window to.  So the behavior will be the same in this instance.
+		; DllCall(GoToDesktopNumberProc, UInt, number)
+	}
+
+		
+	GoToPrevDesktop() {
+		current := DllCall(this.GetCurrentDesktopNumberProc, UInt)
+		if (current = 0) {
+			this.GoToDesktopNumber(7)
+		} else {
+			this.GoToDesktopNumber(current - 1)      
+		}
+		return
+	}
+
+	GoToNextDesktop() {
+		current := DllCall(this.GetCurrentDesktopNumberProc, UInt)
+		if (current = 7) {
+			this.GoToDesktopNumber(0)
+		} else {
+			this.GoToDesktopNumber(current + 1)    
+		}
+		return
+	}
+
+	GoToDesktopNumber(num) {
+		; Store the active window of old desktop, if it is not pinned
+		WinGet, activeHwnd, ID, A
+		current := DllCall(this.GetCurrentDesktopNumberProc, UInt) 
+		isPinned := DllCall(this.IsPinnedWindowProc, UInt, activeHwnd)
+		if (isPinned == 0) {
+			this.activeWindowByDesktop[current] := activeHwnd
+		}
+
+		; Try to avoid flashing task bar buttons, deactivate the current window if it is not pinned
+		if (isPinned != 1) {
+			WinActivate, ahk_class Shell_TrayWnd
+		}
+
+		; Change desktop
+		DllCall(this.GoToDesktopNumberProc, Int, num)
+		return
+	}
+
+
+	getAllVisibleWindowsOnAllVirtualDesktops(){
+
+		WinGet,WinList,List,,,Program Manager
+		List=""
+		WindowList:={}  ; a list of all windows, Key = VirtualDesktopNumber
+		c = 0
+		loop,%WinList%{
+			Current:=WinList%A_Index%
+			If Current {
+				c++
+				;WinGet, activeHwnd, ID, %WinTitle% 
+				activeHwnd := Current
+				desktopNumber := DllCall(this.GetWindowDesktopNumberProc, UInt, activeHwnd, Int)
+				;MsgBox % guid
+				isOnDesktop := DllCall(this.IsWindowOnCurrentVirtualDesktopProc, UInt, activeHwnd, Int)
+				if (DllCall(this.IsWindowOnCurrentVirtualDesktopProc, UInt, activeHwnd, Int) == 1) {
+					if DllCall("IsWindowVisible", "UInt", activeHwnd) {
+						WinGetTitle,WinTitle,ahk_id %Current%
+
+						WinGetPos, X, Y, Width, Height, %WinTitle%
+						 ; this doesn't work for some reason... ;; isOnDesktop := DllCall(IsWindowOnCurrentVirtualDesktopProc, UInt, activeHwnd, Int)
+						List.="`n" "Desktop:" desktopNumber "   ID:" activeHwnd " --- " WinTitle " x=" X " y=" Y " width=" Width " height=" Height
+						if (!WindowList.HasKey(desktopNumber)) {
+							WindowList[desktopNumber]:=[]
+						}
+						WindowList[desktopNumber].Push({ x: X, y: Y, title:WinTitle, height: Height, width: Width, activeHwnd: activeHwnd })
+					}
+				}
+			}
+		}
+		;MsgBox %List%
+		;	MsgBox % c
+		;	MsgBox % WindowList.Length()
+
+		; msgList(Wins)
+		return WindowList 
+	}
+
+	getAllWindowsOnCurrentVirtualDesktop() {
+		WL:=this.getAllVisibleWindowsOnAllVirtualDesktops()
+		current := DllCall(this.GetCurrentDesktopNumberProc, UInt)
+		msgList(WL[current])
+		return WL[current]
+	}
+	
+	
+	focusToWindow(direction) {
+	
+		MsgBox Testing Focus Window
+		; declare variables
+		WinGetActiveTitle, Title
+		WinGet, activeHwnd, ID, %Title%
+		
+		if (direction == "up") {
+		}
+		
+		if (direction == "down") {
+		}
+		
+		if (direction == "left") {
+		}
+		
+		if (direction == "right") {
+		}
+		
+		
+		; look at current active window for coordinates.
+		WinGetPos, X, Y, Width, Height, %Title%
+		centerX := X + (Width / 2)
+		centerY := Y + (Height / 2)
+		MsgBox x = %X%, y = %Y%, width=%Width%, height=%Height%, centerX = %centerX%, centerY = %centerY%
+		
+		; find nearest
+		;windows = this.getAllWindowsOnCurrentVirtualDesktop()
+
+	}
+
 }
-if (BuildNumber > 17134) {
-	hVirtualDesktopAccessor := DllCall("LoadLibrary", Str, A_LineFile . "\VirtualDesktopAccessor_1809_and_above.dll", "Ptr") 
-}
 
-; #Include shell_spy.ahk
 
-DetectHiddenWindows, On
-hwnd:=WinExist("ahk_pid " . DllCall("GetCurrentProcessId","Uint"))
-hwnd+=0x1000<<32
-
-GoToDesktopNumberProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "GoToDesktopNumber", "Ptr")
-GetCurrentDesktopNumberProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "GetCurrentDesktopNumber", "Ptr")
-GetWindowDesktopIdProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "GetWindowDesktopId", "Ptr")
-GetWindowDesktopNumberProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "GetWindowDesktopNumber", "Ptr")
-IsWindowOnCurrentVirtualDesktopProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "IsWindowOnCurrentVirtualDesktop", "Ptr")
-MoveWindowToDesktopNumberProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "MoveWindowToDesktopNumber", "Ptr")
-RegisterPostMessageHookProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "RegisterPostMessageHook", "Ptr")
-UnregisterPostMessageHookProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "UnregisterPostMessageHook", "Ptr")
-IsPinnedWindowProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "IsPinnedWindow", "Ptr")
-RestartVirtualDesktopAccessorProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "RestartVirtualDesktopAccessor", "Ptr")
-; GetWindowDesktopNumberProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "GetWindowDesktopNumber", "Ptr")
-activeWindowByDesktop := {}
-
-; Restart the virtual desktop accessor when Explorer.exe crashes, or restarts (e.g. when coming from fullscreen game)
-explorerRestartMsg := DllCall("user32\RegisterWindowMessage", "Str", "TaskbarCreated")
-OnMessage(explorerRestartMsg, "OnExplorerRestart")
 OnExplorerRestart(wParam, lParam, msg, hwnd) {
-    global RestartVirtualDesktopAccessorProc
-    DllCall(RestartVirtualDesktopAccessorProc, UInt, result)
+	DllCall(desktopSwitcher.RestartVirtualDesktopAccessorProc, UInt, result)
 }
 
-MoveCurrentWindowToDesktop(number) {
-	global MoveWindowToDesktopNumberProc, GoToDesktopNumberProc, activeWindowByDesktop
-	WinGet, activeHwnd, ID, A
-	activeWindowByDesktop[number] := 0 ; Do not activate
-	DllCall(MoveWindowToDesktopNumberProc, UInt, activeHwnd, UInt, number)
-	; todo: make this an optional.  by default, i3wm does not automatically focus to the dekstop you're sending the window to.  So the behavior will be the same in this instance.
-	; DllCall(GoToDesktopNumberProc, UInt, number)
-}
 
-GoToPrevDesktop() {
-	global GetCurrentDesktopNumberProc, GoToDesktopNumberProc
-	current := DllCall(GetCurrentDesktopNumberProc, UInt)
-	if (current = 0) {
-		GoToDesktopNumber(7)
-	} else {
-		GoToDesktopNumber(current - 1)      
-	}
-	return
-}
-
-GoToNextDesktop() {
-	global GetCurrentDesktopNumberProc, GoToDesktopNumberProc
-	current := DllCall(GetCurrentDesktopNumberProc, UInt)
-	if (current = 7) {
-		GoToDesktopNumber(0)
-	} else {
-		GoToDesktopNumber(current + 1)    
-	}
-	return
-}
-
-GoToDesktopNumber(num) {
-	global GetCurrentDesktopNumberProc, GoToDesktopNumberProc, IsPinnedWindowProc, activeWindowByDesktop
-
-	; Store the active window of old desktop, if it is not pinned
-	WinGet, activeHwnd, ID, A
-	current := DllCall(GetCurrentDesktopNumberProc, UInt) 
-	isPinned := DllCall(IsPinnedWindowProc, UInt, activeHwnd)
-	if (isPinned == 0) {
-		activeWindowByDesktop[current] := activeHwnd
-	}
-
-	; Try to avoid flashing task bar buttons, deactivate the current window if it is not pinned
-	if (isPinned != 1) {
-		WinActivate, ahk_class Shell_TrayWnd
-	}
-
-	; Change desktop
-	DllCall(GoToDesktopNumberProc, Int, num)
-	return
-}
-
-; Windows 10 desktop changes listener
-DllCall(RegisterPostMessageHookProc, Int, hwnd, Int, 0x1400 + 30)
-OnMessage(0x1400 + 30, "VWMess")
 VWMess(wParam, lParam, msg, hwnd) {
-	global IsWindowOnCurrentVirtualDesktopProc, IsPinnedWindowProc, activeWindowByDesktop
-
 	desktopNumber := lParam + 1
 	
 	; Try to restore active window from memory (if it's still on the desktop and is not pinned)
 	WinGet, activeHwnd, ID, A 
-	isPinned := DllCall(IsPinnedWindowProc, UInt, activeHwnd)
-	oldHwnd := activeWindowByDesktop[lParam]
-	isOnDesktop := DllCall(IsWindowOnCurrentVirtualDesktopProc, UInt, oldHwnd, Int)
+	isPinned := DllCall(desktopSwitcher.IsPinnedWindowProc, UInt, activeHwnd)
+	oldHwnd := desktopSwitcher.activeWindowByDesktop[lParam]
+	isOnDesktop := DllCall(desktopSwitcher.IsWindowOnCurrentVirtualDesktopProc, UInt, oldHwnd, Int)
 	if (isOnDesktop == 1 && isPinned != 1) {
 		WinActivate, ahk_id %oldHwnd%
 	}
@@ -133,7 +283,7 @@ VWMess(wParam, lParam, msg, hwnd) {
 	; } else {
 		; DllCall("SystemParametersInfo", UInt, 0x14, UInt, 0, Str, "C:\Users\Jarppa\Pictures\Backgrounds\DeskWork.png", UInt, 1)
 	; }
-}
+}	
 
 
 
@@ -160,51 +310,63 @@ VWMess(wParam, lParam, msg, hwnd) {
 
 
 
-getAllVisibleWindowsOnAllVirtualDesktops(){
-	global IsWindowOnCurrentVirtualDesktopProc, IsPinnedWindowProc, activeWindowByDesktop, GetWindowDesktopIdProc, GetWindowDesktopNumberProc
 
-	WinGet,WinList,List,,,Program Manager
-	List=""
-	WindowList:={}  ; a list of all windows, Key = VirtualDesktopNumber
-	c = 0
-	loop,%WinList%{
-		Current:=WinList%A_Index%
-		If Current {
-			c++
-			;WinGet, activeHwnd, ID, %WinTitle% 
-			activeHwnd := Current
-			desktopNumber := DllCall(GetWindowDesktopNumberProc, UInt, activeHwnd, Int)
-			;MsgBox % guid
-			isOnDesktop := DllCall(IsWindowOnCurrentVirtualDesktopProc, UInt, activeHwnd, Int)
-			if (DllCall(IsWindowOnCurrentVirtualDesktopProc, UInt, activeHwnd, Int) == 1) {
-				if DllCall("IsWindowVisible", "UInt", activeHwnd) {
-					WinGetTitle,WinTitle,ahk_id %Current%
 
-					WinGetPos, X, Y, Width, Height, %WinTitle%
-					 ; this doesn't work for some reason... ;; isOnDesktop := DllCall(IsWindowOnCurrentVirtualDesktopProc, UInt, activeHwnd, Int)
-					List.="`n" "Desktop:" desktopNumber "   ID:" activeHwnd " --- " WinTitle " x=" X " y=" Y " width=" Width " height=" Height
-					if (!WindowList.HasKey(desktopNumber)) {
-						WindowList[desktopNumber]:=[]
-					}
-					WindowList[desktopNumber].Push({ x: X, y: Y, title:WinTitle, height: Height, width: Width, activeHwnd: activeHwnd })
-				}
-			}
-   		}
-	}
-	;MsgBox %List%
-	;	MsgBox % c
-	;	MsgBox % WindowList.Length()
 
-	; msgList(Wins)
-	return WindowList 
-}
 
-getAllWindowsOnCurrentVirtualDesktop() {
-	global GetCurrentDesktopNumberProc
-		WL:=getAllVisibleWindowsOnAllVirtualDesktops()
-		current := DllCall(GetCurrentDesktopNumberProc, UInt)
-		msgList(WL[current])
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;
+;
+;  WINDOW FOCUS LOGIC
+;
+;	
+
+
+<!j::
+	;desktopSwitcher.focusToWindow("left")
+	return
+<!k::
+	;desktopSwitcher.focusToWindow("down")
+	return
+<!l::
+	;desktopSwitcher.focusToWindow("up")
+	return
+
+<!;::
+	;desktopSwitcher.focusToWindow("right")
+	return
+
+
+<!h::
+	;msgLines()
+	return
+
+
+
+
+;--------------------------------------------
+
+;------------------ various debug funcs --------------------
+
+; #Include shell_spy.ahk
+
+
+
 
 msgList(l) {
 	List=""
@@ -227,120 +389,6 @@ msgLines() {
 	}
 	MsgBox % List
 }
-
-
-
-
-;for key, value in activeWindowByDesktop
-;    MsgBox activeWindowByDesktop.%key% = %value%
-
-; +<!g::getWindowsOnVirtualDesktop()
-
-<!g::
-   getAllWindowsOnCurrentVirtualDesktop()
-   return
-
-
-
-
-
-
-<!1::GoToDesktopNumber(0)
-<!2::GoToDesktopNumber(1)
-<!3::GoToDesktopNumber(2)
-<!4::GoToDesktopNumber(3)
-<!5::GoToDesktopNumber(4)
-<!6::GoToDesktopNumber(5)
-<!7::GoToDesktopNumber(6)
-<!8::GoToDesktopNumber(7)
-<!9::GoToDesktopNumber(8)
-<!0::GoToDesktopNumber(9)
-
-
-+<!1::MoveCurrentWindowToDesktop(0)
-+<!2::MoveCurrentWindowToDesktop(1)
-+<!3::MoveCurrentWindowToDesktop(2)
-+<!4::MoveCurrentWindowToDesktop(3)
-+<!5::MoveCurrentWindowToDesktop(4)
-+<!6::MoveCurrentWindowToDesktop(5)
-+<!7::MoveCurrentWindowToDesktop(6)
-+<!8::MoveCurrentWindowToDesktop(7)
-+<!9::MoveCurrentWindowToDesktop(8)
-+<!0::MoveCurrentWindowToDesktop(9)
-
-
-<!-::GoToPrevDesktop()
-<!=::GotoNextDesktop()
-
-
-
-
-;
-;
-;  WINDOW FOCUS LOGIC
-;
-;
-
-
-<!j::
-	focusToWindow("left")
-	return
-<!k::
-	focusToWindow("down")
-	return
-<!l::
-	focusToWindow("up")
-	return
-
-<!;::
-	focusToWindow("right")
-	return
-
-
-
-
-focusToWindow(direction) {
-	
-	MsgBox Testing Focus Window
-	global IsWindowOnCurrentVirtualDesktopProc, IsPinnedWindowProc, activeWindowByDesktop
-	; declare variables
-	WinGetActiveTitle, Title
-	WinGet, activeHwnd, ID, %Title%
-	
-	if (direction == "up") {
-	}
-	
-	if (direction == "down") {
-	}
-	
-	if (direction == "left") {
-	}
-	
-	if (direction == "right") {
-	}
-	
-	
-	; look at current active window for coordinates.
-	WinGetPos, X, Y, Width, Height, %Title%
-	centerX := X + (Width / 2)
-	centerY := Y + (Height / 2)
-	MsgBox x = %X%, y = %Y%, width=%Width%, height=%Height%, centerX = %centerX%, centerY = %centerY%
-	
-	; find nearest
-	windows = getAllWindowsOnCurrentVirtualDesktop()
-
-}
-
-
-
-
-; bind to shellhook window events.  use this to refresh the window list for focus movment speed improvement.
-
-
-
-<!h::
-	msgLines()
-	return
 
 
 

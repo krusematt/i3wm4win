@@ -2,11 +2,18 @@
 #Warn  ; Enable warnings to assist with detecting common errors.
 SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
+DetectHiddenWindows, On
 
 
 
+MsgBox % A_LineFile
 
-class i3wm4win {
+
+; Initialize our root i3wm4win object.  Set it as a global so we can use this object anywhere.
+global i3wm4win := new i3wm4win_root()
+
+class i3wm4win_root {
+	count := 0
     CtrlCapsSwap := 0
 	MovementHotKeys := 0
 	DesktopSwitcher := 0
@@ -16,19 +23,28 @@ class i3wm4win {
     TiledWindows := {}
 	IgnoreFirstMove := 1
 	
+	settings := { MovementHotKeys: 0, DesktopSwitcher: 0, CtrlCapsSwap: 0 , TerminalCMD: 0, EnableLauncher: 0	}
+	
 	Axes := {x: 1, y: 2}
 	AxisToWh := {x: "w", y: "h"}
     
 	; --------------------------------- Constructor -------------------------------
     __New(){
+		this.msg()
 		this.IniFile := RegExReplace(A_ScriptName, "\.exe|\.ahk", ".ini")
-		this.hwnd := hwnd
-		settings_loaded := this.LoadSettings()		
+		this.hwnd := WinExist("ahk_pid " . DllCall("GetCurrentProcessId","Uint"))
+		settings_loaded := this.LoadSettings()
+		this.setHotkeyState()
+		return this
+	}
+	
+	msg() {
+		this.count ++
+		MsgBox % "count: " this.count
 	}
 	
 	; --------------------------------- Inital Setup -------------------------------
 	LoadSettings(){
-		hotkey_mode := 1
 		if (FileExist(this.IniFile)){
 			first_run := 0
 		} else {
@@ -36,35 +52,41 @@ class i3wm4win {
 			FileAppend, % "", % this.IniFile
 		}
 		if (!first_run){
-			IniRead, CtrlCapsSwap, % this.IniFile, KeyBindings, Ctrl_Caps_Swap
-			if (CtrlCapsSwap != "ERROR"){
-				this.CtrlCapsSwap := CtrlCapsSwap
+			for key, v in this.settings {
+				IniRead, iniVal, % this.IniFile, Settings, %key%
+				if (iniVal != "ERROR"){
+					this.settings[key] := iniVal
+					MsgBox %key% = %iniVal%
+				}
 			}
-			IniRead, MovementHotKeys, % this.IniFile, KeyBindings, Movement_Hot_Keys
-			if (MovementHotKeys != "ERROR"){
-				this.MovementHotKeys := MovementHotKeys
-			}
-			IniRead, DesktopSwitcher, % this.IniFile, KeyBindings, Virtual_Desktop_Switcher
-			if (DesktopSwitcher != "ERROR"){
-				this.DesktopSwitcher := DesktopSwitcher
-			}			
 		}
-		
-		; Initialize hotkeys
-		this.SetHotkeyState()
-		
-		; Update the GuiControls
-		GuiControl, , % this.hRowsEdit, % this.MonitorRows
-		GuiControl, , % this.hColsEdit, % this.MonitorCols
-		GuiControl, , % this.hIgnoreFirstmove, % this.IgnoreFirstMove
-		
 		return first_run
 	}
-	
-	setHotkeyState() {
-		if(this.CtrlCapsSwap == 1) #Include %A_LineFile%\scripts\_ctrl_caps_swap.ahk
-		if(this.MovementHotKeys == 1) #Include %A_LineFile%\scripts\_movement_and_cursor_controls.ahk
-		if(this.DesktopSwitcher == 1) #Include %A_LineFile%\scripts\_desktop_switcher.ahk
-	}
+
 }
 
+
+i3wm4win.msg()
+
+
+; ------------ include all script files ------------------
+global i3wm4win
+#Include %A_ScriptDir%\scripts\_desktop_switcher.ahk
+
+some_label:
+	MsgBox some message here.
+
+#Include %A_ScriptDir%\scripts\_movement_and_cursor_controls.ahk
+
+i3wm4win.msg()
+
+
+
+#Include %A_ScriptDir%\scripts\_launcher.ahk
+#Include %A_ScriptDir%\scripts\_terminal.ahk
+
+
+;#Include %A_ScriptDir%\scripts\_desktop_switcher.ahk
+
+
+i3wm4win.msg()
