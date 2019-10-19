@@ -2,6 +2,7 @@
 ;~ OutputDebug DBGVIEWCLEAR
 
 ;GoSub, ConfigMinimizeToTray
+DetectHiddenWindows, On
 
 sqas := new SquAeroSnap()
 ;return
@@ -36,11 +37,11 @@ sqas := new SquAeroSnap()
 
 class SquAeroSnap {
     MonitorOrder := []
-	MonitorRows := 4
-	MonitorCols := 4
+	MonitorRows := 2
+	MonitorCols := 2
     Monitors := []
     TiledWindows := {}
-	IgnoreFirstMove := 1
+	IgnoreFirstMove := 0
 	
 	Axes := {x: 1, y: 2}
 	AxisToWh := {x: "w", y: "h"}
@@ -50,7 +51,8 @@ class SquAeroSnap {
 
         Gui, +hwndhwnd
         this.hwnd := hwnd
-		
+
+		this.InitializeDLL()
 		; === Gui ===
 		;Gui, Add, GroupBox, w250 h75 Center Section, General Settings
 
@@ -96,11 +98,39 @@ class SquAeroSnap {
 		} else {
 			;Gui, Show
 		}
-		MsgBox inside tile manager
+		MsgBox Initializing ALL windows.
+		this.InitializeAllWindows()
 		; === Enable GuiControl Callbacks ===
-		this.SetGuiControlCallbackState(1)
+		;this.SetGuiControlCallbackState(1)
     }
 	
+	
+	InitializeDLL() {
+		MajorVersion := DllCall("GetVersion") & 0xFF                ; 10
+		MinorVersion := DllCall("GetVersion") >> 8 & 0xFF           ; 0
+		BuildNumber  := DllCall("GetVersion") >> 16 & 0xFFFF        ; 10532
+		;MsgBox % "MajorVersion:`t" MajorVersion "`n" "MinorVersion:`t" MinorVersion "`n" "BuildNumber:`t"  BuildNumber "`n" "dir:" A_ScriptDir
+		;  load the correct DLL based on the version of windows.  i.e.  < 1803 vs  > 1803    different lib required.
+		if (BuildNumber <= 17134) {
+			this.hVirtualDesktopAccessor := DllCall("LoadLibrary", Str, A_ScriptDir . "\dll\VirtualDesktopAccessor_1803_and_lower.dll", "Ptr") 
+		}
+		if (BuildNumber > 17134) {
+			this.hVirtualDesktopAccessor := DllCall("LoadLibrary", Str, A_ScriptDir . "\dll\VirtualDesktopAccessor_1809_and_above.dll", "Ptr") 
+		}
+		
+		this.GoToDesktopNumberProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "GoToDesktopNumber", "Ptr")
+		this.GetCurrentDesktopNumberProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "GetCurrentDesktopNumber", "Ptr")
+		this.GetWindowDesktopIdProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "GetWindowDesktopId", "Ptr")
+		this.GetWindowDesktopNumberProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "GetWindowDesktopNumber", "Ptr")
+		this.IsWindowOnCurrentVirtualDesktopProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "IsWindowOnCurrentVirtualDesktop", "Ptr")
+		this.MoveWindowToDesktopNumberProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "MoveWindowToDesktopNumber", "Ptr")
+		this.RegisterPostMessageHookProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "RegisterPostMessageHook", "Ptr")
+		this.UnregisterPostMessageHookProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "UnregisterPostMessageHook", "Ptr")
+		this.IsPinnedWindowProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "IsPinnedWindow", "Ptr")
+		this.RestartVirtualDesktopAccessorProc := DllCall("GetProcAddress", Ptr, this.hVirtualDesktopAccessor, AStr, "RestartVirtualDesktopAccessor", "Ptr")
+		; GetWindowDesktopNumberProc := DllCall("GetProcAddress", Ptr, hVirtualDesktopAccessor, AStr, "GetWindowDesktopNumber", "Ptr")
+				
+	}
 	
 	; --------------------------------- Inital Setup -------------------------------
 	LoadSettings(){
@@ -154,29 +184,32 @@ class SquAeroSnap {
 		fn := this.FullScreenWindow.Bind(this)
 		hotkey, <!f, % fn
 		
-		;fn := this.SizeWindow.Bind(this, "x", 1, 1)
-		;hotkey, #^Right, % fn
+		fn := this.SizeWindow.Bind(this, "x", 1, 1)
+		hotkey, <!^;, % fn
 		
-		;fn := this.SizeWindow.Bind(this, "x", 1, -1)
-		;hotkey, #^Left, % fn
+		fn := this.SizeWindow.Bind(this, "x", 1, -1)
+		hotkey, <!^j, % fn
 		
-		;fn := this.SizeWindow.Bind(this, "x", -1, 1)
-		;hotkey, #+Right, % fn
+		fn := this.SizeWindow.Bind(this, "x", -1, 1)
+		hotkey, <!+;, % fn
 		
-		;fn := this.SizeWindow.Bind(this, "x", -1, -1)
-		;hotkey, #+Left, % fn
+		fn := this.SizeWindow.Bind(this, "x", -1, -1)
+		hotkey, <!+j, % fn
 		
-		;fn := this.SizeWindow.Bind(this, "y", 1, 1)
-		;hotkey, #^Down, % fn
+		fn := this.SizeWindow.Bind(this, "y", 1, 1)
+		hotkey, <!^k, % fn
 		
-		;fn := this.SizeWindow.Bind(this, "y", 1, -1)
-		;hotkey, #^Up, % fn
+		fn := this.SizeWindow.Bind(this, "y", 1, -1)
+		hotkey, <!^l, % fn
 		
-		;fn := this.SizeWindow.Bind(this, "y", -1, 1)
-		;hotkey, #+Down, % fn
+		fn := this.SizeWindow.Bind(this, "y", -1, 1)
+		hotkey, <!+k, % fn
 		
-		;fn := this.SizeWindow.Bind(this, "y", -1, -1)
-		;hotkey, #+Up, % fn
+		fn := this.SizeWindow.Bind(this, "y", -1, -1)
+		hotkey, <!+l, % fn
+		
+		fn := this.debugVisibleWindows.Bind(this)
+		hotkey, <!g, % fn
 		
 		this.SetHotkeyInstructions()
     }
@@ -241,10 +274,20 @@ LALT + SHIFT + Left/Right = Resize left edge
         }
         return win
     }
+	
+	GetWindowByHwnd(hwnd) {
+		if (this.TiledWindows.HasKey(hwnd)){
+			win := this.TiledWindows[hwnd]
+		} else {
+			win := new this.CWindow(hwnd)
+        }
+        return win
+	}
 
 	; Initializes a window if needed.
 	; Returns 1 to indicate that the window is new
 	InitWindow(win){
+		;MsgBox % JSON.dump(win)
         if (this.TiledWindows.HasKey(win.hwnd)){
 			return 0
 		} else {
@@ -337,6 +380,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 		
 		WinGet, MinMax, MinMax, % "ahk_id " win.hwnd
 		if (MinMax == 1) {
+			MsgBox % JSON.dump(win)
 			WinRestore, % "ahk_id " win.hwnd
 			; todo: Add logic to move window back to it's tile postion.
 		} else {
@@ -449,7 +493,75 @@ LALT + SHIFT + Left/Right = Resize left edge
 		}
 		return 0
 	}
+
+
+
+	; --------------------------------------Window Discovery--------------------------
+	InitializeAllWindows() {
+		windows := this.AltTabWindows()
+		for k, windowID in windows {
+									MsgBox % windowID
+					win := this.GetWindowByHwnd(windowID)
+					; this.InitWindow(win)
+					MsgBox % JSON.dump(win)
+				
+		}
+		MsgBox % JSON.dump(windows)
+	}
 	
+	debugVisibleWindows() {
+		MsgBox % JSON.dump(this.AltTabWindows())
+	}
+
+
+	AltTabWindows() {
+	   static WS_EX_TOPMOST :=            0x8 ; sets the Always On Top flag
+	   static WS_EX_APPWINDOW :=      0x40000 ; provides a taskbar button
+	   static WS_EX_TOOLWINDOW :=        0x80 ; removes the window from the alt-tab list
+	   static GW_OWNER := 4
+
+	   AltTabList := {}
+	   windowList := ""
+	   DetectHiddenWindows, Off ; makes DllCall("IsWindowVisible") unnecessary
+	   WinGet, windowList, List ; gather a list of running programs
+	   Loop, %windowList%
+		  {
+		  ownerID := windowID := windowList%A_Index%
+		  Loop { ;If the window we found is opened by another application or "child", let's get the hWnd of the parent
+			 ownerID := Format("0x{:x}",  DllCall("GetWindow", "UInt", ownerID, "UInt", GW_OWNER))
+		  } Until !Format("0x{:x}",  DllCall("GetWindow", "UInt", ownerID, "UInt", GW_OWNER))
+		  ownerID := ownerID ? ownerID : windowID
+
+		  ; only windows that are not removed from the Alt+Tab list, AND have a taskbar button, will be appended to our list.
+		  If (Format("0x{:x}", DllCall("GetLastActivePopup", "UInt", ownerID)) = windowID)
+			 {
+			 WinGet, es, ExStyle, ahk_id %windowID%
+			 If (!((es & WS_EX_TOOLWINDOW) && !(es & WS_EX_APPWINDOW)) && !this.IsInvisibleWin10BackgroundAppWindow(windowID))
+				AltTabList.Push(windowID)
+			 }
+		  }
+
+	   ; UNCOMMENT THIS FOR TESTING
+	   ;WinGetClass, class1, % "ahk_id" AltTabList[1]
+	   ;WinGetClass, class2, % "ahk_id" AltTabList[2]
+	   ;WinGetClass, classF, % "ahk_id" AltTabList.pop()
+	   ;msgbox % "Number of Windows: " AltTabList.length() "`nFirst windowID: " class1 "`nSecond windowID: " class2 "`nFinal windowID: " classF
+	   return AltTabList
+	}
+
+	  IsInvisibleWin10BackgroundAppWindow(hWindow) {
+		result := 0
+		VarSetCapacity(cloakedVal, A_PtrSize) ; DWMWA_CLOAKED := 14
+		hr := DllCall("DwmApi\DwmGetWindowAttribute", "Ptr", hWindow, "UInt", 14, "Ptr", &cloakedVal, "UInt", A_PtrSize)
+		if !hr ; returns S_OK (which is zero) on success. Otherwise, it returns an HRESULT error code
+		  result := NumGet(cloakedVal) ; omitting the "&" performs better
+		return result ? true : false
+		}
+
+
+
+
+
 	; ------------------------- GuiControl handling ----------------------------------
 	RowColChanged(){
 		;GuiControlGet, rows, , % this.hRowsEdit
@@ -466,6 +578,11 @@ LALT + SHIFT + Left/Right = Resize left edge
 		;this.IgnoreFirstMove := setting
 		;IniWrite, % this.IgnoreFirstMove, % this.IniFile, Settings, IgnoreFirstMove
 	}
+
+
+
+
+
 
 	; -------------------------------------------- Monitor Class ---------------------------------
     class CMonitor {
@@ -677,4 +794,14 @@ Window_move(wndId, x, y, width, height) {
 		SendMessage, WM_EXITSIZEMOVE, , , , % "ahk_id " wndId
 		Return, 0
 	}
+}
+
+
+
+Decimal_to_Hex(var)
+{
+    Setformat, integer, hex
+    var += 0
+    Setformat, integer, d
+    return var
 }
