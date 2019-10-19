@@ -151,6 +151,9 @@ class SquAeroSnap {
 		fn := this.MoveWindow.Bind(this, "y", -1)
 		hotkey, +<!l, % fn
 		
+		fn := this.FullScreenWindow.Bind(this)
+		hotkey, <!f, % fn
+		
 		;fn := this.SizeWindow.Bind(this, "x", 1, 1)
 		;hotkey, #^Right, % fn
 		
@@ -308,6 +311,38 @@ LALT + SHIFT + Left/Right = Resize left edge
 		}
         Win.Pos[axis] := new_pos
         this.TileWindow(win)
+    }
+	;
+	;
+	; @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+	;
+	; Moves a window along a specified axis in the direction of a specified vector
+    FullScreenWindow(){
+        win := this.GetWindow()
+		
+		;if (this.InitWindow(win) && this.IgnoreFirstMove){
+			;return
+		;}
+		
+		mon := win.CurrentMonitor
+		;MsgBox % JSON.dump(win.hwnd)
+		
+		;MsgBox % JSON.dump(this.Monitors)
+		
+		;this.Monitors[win.CurrentMonitor]
+		;Window_move(win.hwnd, x, y, width, height)
+		;MsgBox % win.hwnd
+		;new_pos := win.Pos[axis] + vector
+		;Window_move(win.hwnd, this.Monitors[win.CurrentMonitor]["t"], this.Monitors[win.CurrentMonitor]["l"], this.Monitors[win.CurrentMonitor]["w"], this.Monitors[win.CurrentMonitor]["h"])
+		
+		WinGet, MinMax, MinMax, % "ahk_id " win.hwnd
+		if (MinMax == 1) {
+			WinRestore, % "ahk_id " win.hwnd
+			; todo: Add logic to move window back to it's tile postion.
+		} else {
+			WinMaximize, % "ahk_id " win.hwnd
+		}
+		
     }
     
 	; Sizes a window by moving and edge along a specific axis in the direction of a specified vector
