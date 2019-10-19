@@ -71,8 +71,9 @@ class i3wm4win_bootstrap {
 ; ------------ include all script files ------------------
 
 ; Always load scripts with class objects first.  If standard `<!j::` keymap is included (i.e. copy contents paste into.) there will be issues
-#Include %A_ScriptDir%\scripts\_desktop_switcher.ahk
+#Include %A_ScriptDir%\scripts\_tile_manager_and_focus_controls.ahk
 
+#Include %A_ScriptDir%\scripts\_desktop_switcher.ahk
 
 ; standard keybinding scripts below.
 #Include %A_ScriptDir%\scripts\_movement_and_cursor_controls.ahk
