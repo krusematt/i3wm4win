@@ -184,32 +184,37 @@ class SquAeroSnap {
 		fn := this.FullScreenWindow.Bind(this)
 		hotkey, <!f, % fn
 		
-		fn := this.SizeWindow.Bind(this, "x", 1, 1)
-		hotkey, <!^;, % fn
 		
-		fn := this.SizeWindow.Bind(this, "x", 1, -1)
-		hotkey, <!^j, % fn
+		;fn := this.SizeWindow.Bind(this, "x", 1, 1)
+		;hotkey, <!^;, % fn
 		
-		fn := this.SizeWindow.Bind(this, "x", -1, 1)
-		hotkey, <!+;, % fn
+		;fn := this.SizeWindow.Bind(this, "x", 1, -1)
+		;hotkey, <!^j, % fn
 		
-		fn := this.SizeWindow.Bind(this, "x", -1, -1)
-		hotkey, <!+j, % fn
+		;fn := this.SizeWindow.Bind(this, "x", -1, 1)
+		;hotkey, <!+;, % fn
 		
-		fn := this.SizeWindow.Bind(this, "y", 1, 1)
-		hotkey, <!^k, % fn
+		;fn := this.SizeWindow.Bind(this, "x", -1, -1)
+		;hotkey, <!+j, % fn
 		
-		fn := this.SizeWindow.Bind(this, "y", 1, -1)
-		hotkey, <!^l, % fn
+		;fn := this.SizeWindow.Bind(this, "y", 1, 1)
+		;hotkey, <!^k, % fn
 		
-		fn := this.SizeWindow.Bind(this, "y", -1, 1)
-		hotkey, <!+k, % fn
+		;fn := this.SizeWindow.Bind(this, "y", 1, -1)
+		;hotkey, <!^l, % fn
 		
-		fn := this.SizeWindow.Bind(this, "y", -1, -1)
-		hotkey, <!+l, % fn
+		;fn := this.SizeWindow.Bind(this, "y", -1, 1)
+		;hotkey, <!+k, % fn
+		
+		;fn := this.SizeWindow.Bind(this, "y", -1, -1)
+		;hotkey, <!+l, % fn
 		
 		fn := this.debugVisibleWindows.Bind(this)
 		hotkey, <!g, % fn
+		
+		
+		fn := this.ReInitActiveWindow.Bind(this)
+		hotkey, +<!t, % fn
 		
 		this.SetHotkeyInstructions()
     }
@@ -286,9 +291,9 @@ LALT + SHIFT + Left/Right = Resize left edge
 
 	; Initializes a window if needed.
 	; Returns 1 to indicate that the window is new
-	InitWindow(win){
+	InitWindow(win, force:=false){
 		;MsgBox % JSON.dump(win)
-        if (this.TiledWindows.HasKey(win.hwnd)){
+        if (this.TiledWindows.HasKey(win.hwnd) && !force){
 			return 0
 		} else {
             this.TiledWindows[win.hwnd] := win
@@ -330,27 +335,76 @@ LALT + SHIFT + Left/Right = Resize left edge
 	
 	; Moves a window along a specified axis in the direction of a specified vector
     MoveWindow(axis, vector){
+		oaxis := axis == "x" ? "y" : "x"
+		;MsgBox % oaxis
+
         win := this.GetWindow()
-		
-		if (this.InitWindow(win) && this.IgnoreFirstMove){
-			return
-		}
+
+		;if (this.InitWindow(win) && this.IgnoreFirstMove){
+			;return
+		;}
 		mon := win.CurrentMonitor
+		;MsgBox % JSON.dump(win)
+		;MsgBox % JSON.dump(mon)
 		
 		new_pos := win.Pos[axis] + vector
-		
+		; --- quick hack to allow for either vertical split or horizontal split.
+		; --- upcoming refactor will have more robust window tiling management.
+		; --- 
+		; --- making a quick hack to get a functional MVP.
+		; --- when attempting to move window
+		;MsgBox % JSON.dump(new_pos)
 		if ((new_pos + win.Span[axis] - 1) > mon.TileCount[axis]){
-			if (axis == "y")
-				return
-			new_pos := 1
-			mon := this.GetNextMonitor(mon.id, vector)
-			win.CurrentMonitor := mon
+			; moving beyond axis ++
+			;if (axis == "y")
+				;return
+			
+			; must check if monitor is full span before pusing to next monitor.
+			; if not, resize window to full span across axis.
+			;if(win.Span[axis] != )
+			
+			if(win.Span[axis] == mon.TileCount[axis]) {
+				win.Span[axis] --
+				;new_pos := win.Pos[axis]
+			
+			} else if (win.Span[oaxis] != mon["TileCount"][oaxis]) {
+				;
+				; -- 
+				;
+				win.Span[oaxis] := mon["TileCount"][oaxis]
+				win.Pos[oaxis] := 1
+				new_pos := win.Pos[axis]
+			} else {
+				new_pos := 1
+				mon := this.GetNextMonitor(mon.id, vector)
+				win.CurrentMonitor := mon
+			}
 		} else if (new_pos <= 0){
-			if (axis == "y")
-				return
-			mon := this.GetNextMonitor(mon.id, vector)
-			win.CurrentMonitor := mon
-			new_pos := (mon.TileCount[axis] - win.Span[axis]) + (vector * -1)
+			; moving beyond axis --
+			;if (axis == "y")
+				;return
+				
+				; if moving along the y axis with full span, reduce to single span.
+				
+			if(win.Span[axis] == mon.TileCount[axis]) {
+				win.Span[axis] --
+				new_pos := win.Pos[axis]
+			
+			} else if (win.Span[oaxis] != mon["TileCount"][oaxis]) {
+				;
+				; -- 
+				;
+				win.Span[oaxis] := mon["TileCount"][oaxis]
+				win.Pos[oaxis] := 1
+				new_pos := win.Pos[axis]
+			} else if (win.Span[axis] == mon["TileCount"][axis]) {
+				win.Span[oaxis] --
+				now_pos := win.Pos[axis]
+			} else {
+				mon := this.GetNextMonitor(mon.id, vector)
+				win.CurrentMonitor := mon
+				new_pos := (mon.TileCount[axis] - win.Span[axis]) + (vector * -1)
+			}
 		}
         Win.Pos[axis] := new_pos
         this.TileWindow(win)
@@ -360,6 +414,12 @@ LALT + SHIFT + Left/Right = Resize left edge
 	; @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 	;
 	; Moves a window along a specified axis in the direction of a specified vector
+	ReInitActiveWindow() {
+			win := this.getWindow()
+			this.InitWindow(win, true)
+	}
+	
+	
     FullScreenWindow(){
         win := this.GetWindow()
 		

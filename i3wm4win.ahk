@@ -56,7 +56,7 @@ class i3wm4win_bootstrap {
 				IniRead, iniVal, % this.IniFile, Settings, %key%
 				if (iniVal != "ERROR"){
 					this.settings[key] := iniVal
-					MsgBox %key% = %iniVal%
+					;MsgBox %key% = %iniVal%
 				}
 			}
 		}
