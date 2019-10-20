@@ -17,7 +17,7 @@ class CDesktopSwitcher {
 	activeWindowByDesktop := {}
 
 	__New() {
-		MsgBox inside the __new method
+		;MsgBox inside the __new method
 		this.hwnd:=WinExist("ahk_pid " . DllCall("GetCurrentProcessId","Uint"))
 		this.hwnd+=0x1000<<32
 		
@@ -31,7 +31,7 @@ class CDesktopSwitcher {
 		MajorVersion := DllCall("GetVersion") & 0xFF                ; 10
 		MinorVersion := DllCall("GetVersion") >> 8 & 0xFF           ; 0
 		BuildNumber  := DllCall("GetVersion") >> 16 & 0xFFFF        ; 10532
-		MsgBox % "MajorVersion:`t" MajorVersion "`n" "MinorVersion:`t" MinorVersion "`n" "BuildNumber:`t"  BuildNumber "`n" "dir:" A_ScriptDir
+		;MsgBox % "MajorVersion:`t" MajorVersion "`n" "MinorVersion:`t" MinorVersion "`n" "BuildNumber:`t"  BuildNumber "`n" "dir:" A_ScriptDir
 		;  load the correct DLL based on the version of windows.  i.e.  < 1803 vs  > 1803    different lib required.
 		if (BuildNumber <= 17134) {
 			this.hVirtualDesktopAccessor := DllCall("LoadLibrary", Str, A_ScriptDir . "\dll\VirtualDesktopAccessor_1803_and_lower.dll", "Ptr") 
@@ -219,7 +219,7 @@ class CDesktopSwitcher {
 	
 	focusToWindow(direction) {
 	
-		MsgBox Testing Focus Window
+		;MsgBox Testing Focus Window
 		; declare variables
 		WinGetActiveTitle, Title
 		WinGet, activeHwnd, ID, %Title%

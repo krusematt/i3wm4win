@@ -98,7 +98,7 @@ class SquAeroSnap {
 		} else {
 			;Gui, Show
 		}
-		MsgBox Initializing ALL windows.
+		;MsgBox Initializing ALL windows.
 		this.InitializeAllWindows()
 		; === Enable GuiControl Callbacks ===
 		;this.SetGuiControlCallbackState(1)
@@ -380,7 +380,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 		
 		WinGet, MinMax, MinMax, % "ahk_id " win.hwnd
 		if (MinMax == 1) {
-			MsgBox % JSON.dump(win)
+			;MsgBox % JSON.dump(win)
 			WinRestore, % "ahk_id " win.hwnd
 			; todo: Add logic to move window back to it's tile postion.
 		} else {
@@ -500,17 +500,17 @@ LALT + SHIFT + Left/Right = Resize left edge
 	InitializeAllWindows() {
 		windows := this.AltTabWindows()
 		for k, windowID in windows {
-									MsgBox % windowID
+					;MsgBox % windowID
 					win := this.GetWindowByHwnd(windowID)
-					; this.InitWindow(win)
-					MsgBox % JSON.dump(win)
+					this.InitWindow(win)
+					;MsgBox % JSON.dump(win)
 				
 		}
-		MsgBox % JSON.dump(windows)
+		;MsgBox % JSON.dump(windows)
 	}
 	
 	debugVisibleWindows() {
-		MsgBox % JSON.dump(this.AltTabWindows())
+		;MsgBox % JSON.dump(this.AltTabWindows())
 	}
 
 
