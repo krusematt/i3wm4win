@@ -113,6 +113,13 @@ class CDesktopSwitcher {
 		
 	}
 	
+	; this will be refactored.
+	InitializeAllWindows() {
+		global sqas
+		if(sqas) {
+			sqas.InitializeAllWindows()
+		}
+	}
 	
 	SetupDesktopChangeListener() {
 		; Windows 10 desktop changes listener
@@ -148,6 +155,7 @@ class CDesktopSwitcher {
 		} else {
 			this.GoToDesktopNumber(current + 1)    
 		}
+		InitializeAllWindows()
 		return
 	}
 

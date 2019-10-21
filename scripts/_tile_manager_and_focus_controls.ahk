@@ -4,7 +4,7 @@
 ;GoSub, ConfigMinimizeToTray
 DetectHiddenWindows, On
 
-sqas := new SquAeroSnap()
+global sqas := new SquAeroSnap()
 ;return
 
 ;~ ^Esc::
@@ -14,7 +14,7 @@ sqas := new SquAeroSnap()
 
 ; == Axes, Vectors and Edges ==
 ; Moving occurs along an axis
-;	If you hit left or right, that's a move along the x axis
+;	If you hit left or right, thats a move along the x axis
 ;	If you hit up/down, that's that's a move along the y axis
 ; Movement is in the direction of a vector
 ;	-1 is towards the origin, so left or up
@@ -169,6 +169,22 @@ class SquAeroSnap {
 	
 	; Turns On or Off hotkeys, or sets the mode
     SetHotkeyState(){
+		
+		; focus
+		fn := this.FocusWindow.Bind(this, "x", 1)
+		hotkey, <!;, % fn
+		
+		fn := this.FocusWindow.Bind(this, "x", -1)
+		hotkey, <!j, % fn
+		
+		fn := this.FocusWindow.Bind(this, "y", 1)
+		hotkey, <!k, % fn
+		
+		fn := this.FocusWindow.Bind(this, "y", -1)
+		hotkey, <!l, % fn
+		
+		
+		; move window
 		fn := this.MoveWindow.Bind(this, "x", 1)
 		hotkey, +<!;, % fn
 		
@@ -180,7 +196,10 @@ class SquAeroSnap {
 		
 		fn := this.MoveWindow.Bind(this, "y", -1)
 		hotkey, +<!l, % fn
-		
+
+
+
+		; fullscreen
 		fn := this.FullScreenWindow.Bind(this)
 		hotkey, <!f, % fn
 		
@@ -308,6 +327,10 @@ LALT + SHIFT + Left/Right = Resize left edge
 		mon := win.CurrentMonitor
 		coords := win.GetLocalCoords()
 
+		Axes := {x: 1, y: 2}
+		AxisToWh := {x: "w", y: "h"}
+    
+
 		for axis, unused in this.Axes {
 			w_h := this.AxisToWh[axis] ; convert "x" or "y" to "w" or "h"
 			; Work out initial position
@@ -409,6 +432,131 @@ LALT + SHIFT + Left/Right = Resize left edge
         Win.Pos[axis] := new_pos
         this.TileWindow(win)
     }
+	
+	FocusWindow(axis, vector) {
+		oaxis := axis == "x" ? "y" : "x"
+		x1=x1
+		x2=x2
+		y1=y1
+		y2=y2
+        win := this.GetWindow()
+		win.c := win.GetCenter()
+
+		;if (this.InitWindow(win) && this.IgnoreFirstMove){
+			;return
+		;}
+		new_pos := win.Pos[axis] + vector
+		c := win.GetCenter()
+		threshold := 50 ; number of pixels in x or y to qualify as same centerpoint.
+		;threshold_range
+		tr := { x1 : c["x"]-threshold, x2: c["x"]+threshold, y1:c["y"]-threshold, y2:c["y"]+threshold }
+		
+		focus_window := false
+		
+		;MsgBox % JSON.dump(c)
+		mon := win.CurrentMonitor
+		;MsgBox % JSON.dump(win)
+		;MsgBox % JSON.dump(mon)
+		windows := []
+		windows_on_center := []
+		; GET ALL WINDOWS 
+		
+		; tie-breaking rules.
+		; if centers of two or more windows are equal.  cycle through them by hardware id via vector until out of range.
+		; allow for a radial|square target zone to qualify windows as equal center eg: +-50px either axis.
+		
+		; check if we need to switch monitors in relation to axis and vector.
+		;MsgBox % JSON.dump(this.TiledWindows)
+		
+		for win_hwnd, w in this.TiledWindows {
+			; must check if this window is on the same virtual desktop.
+			if (!w.IsOnCurrentDesktop(this.IsWindowOnCurrentVirtualDesktopProc)) { 
+				continue
+			}
+			
+			;MsgBox % JSON.dump(w)
+				if (w.CurrentMonitor.ID == mon.ID &&  w.hwnd != win.hwnd) { 
+					; filter list down only whats eligible for focus.
+					w.c := w.GetCenter()
+					;MsgBox % win.hwnd " ---- " w.hwnd 
+
+					
+					
+					
+					;first check for center match.
+					;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+					;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+					if(w.c[axis] >= tr[%axis%1] && w.c[axis] <= tr[%axis%2] && w.c[oaxis] >= tr[%oaxis%1] && w.c[oaxis] <= tr[%oaxis%2] && w.hwnd < win.hwnd && vector < 0) {
+						windows.push(win)
+						;MsgBox % "vector --" tr[%axis%1]
+						continue
+					}
+					if(w.c[axis] >= tr[%axis%1] && w.c[axis] <= tr[%axis%2] && w.c[oaxis] >= tr[%oaxis%1] && w.c[oaxis] <= tr[%oaxis%2] && w.hwnd > win.hwnd && vector > 0) {
+						windows.push(win)
+						;MsgBox % "vector ++" tr[%axis%1]
+						continue
+					}
+					;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+					
+					
+					;
+					; now check if window is in path of vector.
+					; and obtain the distance to each window.
+					if(vector > 0) {
+						; vector ++
+						if(w.c[axis] > win.c[axis]) {
+							; determine distance
+							w.distance := abs(w.c[axis] - win.c[axis]) + abs(w.c[oaxis] - win.c[oaxis])
+							windows.push(w)
+							if(!focus_window) {
+								; assign the first window as first to focus.
+								focus_window := w
+							} else if (w.distance < focus_window.distance) {
+								focus_window := w
+							}
+						}
+						
+							
+					} else {
+						; vector --
+						if(w.c[axis] < win.c[axis]) {
+							; determine distance
+							w.distance := abs(w.c[axis] - win.c[axis]) + abs(w.c[oaxis] - win.c[oaxis])
+							windows.push(w)
+							if(!focus_window) {
+								; assign the first window as first to focus.
+								focus_window := w
+							} else if (w.distance < focus_window.distance) {
+								focus_window := w
+							}
+						}
+					}
+					
+					;if(w.c[axis] )
+					
+					
+					; now check of windows following the vector
+				}
+				
+			
+		}
+		
+		for key, win in windows {
+			
+		}
+			
+		; MsgBox % JSON.dump(windows)
+		;MsgBox % JSON.dump(focus_window)
+		if(focus_window) {
+		
+					WinActivate, % "ahk_id " focus_window.hwnd
+
+		}
+		
+
+	}
+	
+	
 	;
 	;
 	; @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -442,7 +590,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 		if (MinMax == 1) {
 			;MsgBox % JSON.dump(win)
 			WinRestore, % "ahk_id " win.hwnd
-			; todo: Add logic to move window back to it's tile postion.
+			; todo: Add logic to move window back to its tile postion.
 		} else {
 			WinMaximize, % "ahk_id " win.hwnd
 		}
@@ -481,7 +629,7 @@ LALT + SHIFT + Left/Right = Resize left edge
         this.TileWindow(win)
     }
 	
-	; Request a window be placed in it's designated tile
+	; Request a window be placed in its designated tile
 	TileWindow(win){
         mon := win.CurrentMonitor
 		
@@ -506,6 +654,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 	; curr = Monitor ID (AHK monitor #)
 	; vector = direction to look in
 	; Returns monitor Object
+	; todo; add axis support. 
 	GetNextMonitor(curr, vector){
 		found := 0
 		for i, monid in this.MonitorOrder {
@@ -570,9 +719,17 @@ LALT + SHIFT + Left/Right = Resize left edge
 	}
 	
 	debugVisibleWindows() {
-		;MsgBox % JSON.dump(this.AltTabWindows())
+		for key, windowID in this.AltTabWindows() {
+			win := this.GetWindowByHwnd(windowID)
+			MsgBox % JSON.dump(win)
+		}	
+		MsgBox % JSON.dump(this.AltTabWindows())
 	}
 
+	getWindowsByMonitor(mon) {
+		
+		;win.CurrentMonitor		
+	}
 
 	AltTabWindows() {
 	   static WS_EX_TOPMOST :=            0x8 ; sets the Always On Top flag
@@ -587,7 +744,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 	   Loop, %windowList%
 		  {
 		  ownerID := windowID := windowList%A_Index%
-		  Loop { ;If the window we found is opened by another application or "child", let's get the hWnd of the parent
+		  Loop { ;If the window we found is opened by another application or "child", lets get the hWnd of the parent
 			 ownerID := Format("0x{:x}",  DllCall("GetWindow", "UInt", ownerID, "UInt", GW_OWNER))
 		  } Until !Format("0x{:x}",  DllCall("GetWindow", "UInt", ownerID, "UInt", GW_OWNER))
 		  ownerID := ownerID ? ownerID : windowID
@@ -609,14 +766,16 @@ LALT + SHIFT + Left/Right = Resize left edge
 	   return AltTabList
 	}
 
-	  IsInvisibleWin10BackgroundAppWindow(hWindow) {
+	IsInvisibleWin10BackgroundAppWindow(hWindow) {
 		result := 0
 		VarSetCapacity(cloakedVal, A_PtrSize) ; DWMWA_CLOAKED := 14
 		hr := DllCall("DwmApi\DwmGetWindowAttribute", "Ptr", hWindow, "UInt", 14, "Ptr", &cloakedVal, "UInt", A_PtrSize)
 		if !hr ; returns S_OK (which is zero) on success. Otherwise, it returns an HRESULT error code
-		  result := NumGet(cloakedVal) ; omitting the "&" performs better
+			result := NumGet(cloakedVal) ; omitting the "&" performs better
 		return result ? true : false
-		}
+	}
+
+
 
 
 
@@ -733,6 +892,19 @@ LALT + SHIFT + Left/Right = Resize left edge
             cy := w.y + round(w.h / 2)
             return {x: cx, y: cy}
         }
+		
+		GetVirtualDesktopID() {
+			desktopNumber := DllCall(this.GetWindowDesktopNumberProc, UInt, this.hwnd, Int)
+			return desktopNumber
+		}
+		
+		IsOnCurrentDesktop(IsWindowOnCurrentVirtualDesktopProc) {
+			;MsgBox % DllCall(IsWindowOnCurrentVirtualDesktopProc, UInt, this.hwnd, Int) == 1
+			if(DllCall(IsWindowOnCurrentVirtualDesktopProc, UInt, this.hwnd, Int) == 1) {
+				return true
+			}
+			return false
+		}
     }
 }
 
