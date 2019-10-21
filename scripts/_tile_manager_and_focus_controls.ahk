@@ -440,6 +440,12 @@ LALT + SHIFT + Left/Right = Resize left edge
 		y1=y1
 		y2=y2
         win := this.GetWindow()
+			; must check if current focused window is on the same virtual desktop.
+			; this may not be the case if we switch between different virtual desktops.
+			if (!win.IsOnCurrentDesktop(this.IsWindowOnCurrentVirtualDesktopProc)) { 
+				; reassign win to be the center of the monitor.
+				
+			}
 		win.c := win.GetCenter()
 
 		;if (this.InitWindow(win) && this.IgnoreFirstMove){
@@ -454,7 +460,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 		focus_window := false
 		
 		;MsgBox % JSON.dump(c)
-		mon := win.CurrentMonitor
+		mon := win.CurrentMonitor   ; this will be problematic,  don't assume momnitor will be the same.
 		;MsgBox % JSON.dump(win)
 		;MsgBox % JSON.dump(mon)
 		windows := []
