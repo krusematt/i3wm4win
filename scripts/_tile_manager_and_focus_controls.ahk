@@ -24,7 +24,8 @@ DetectHiddenWindows, On
 
 
 
-monitorScale := {2: 0.75, 3: 0.75}
+monitorScale := {1: 1 ,2: 0.75, 3: 0.75}
+monitorOffset := {3: {x:-3,y:0,w:0, h:0},  1: {x:10,y:0,w:-10, h:0} }  ; offset to be applied to the tiles coords when moving.  this addresses the issue of scaling windows.  If a window's edge is next to a monitor with different DPI scaling, the monitor with larger scaling will be applied to the window.
 forceScaleOnMonitors := 0.75  ; testing this.  we have some wonky behavior to address.
 
 
@@ -348,7 +349,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 				; lets default monitor 1!
 				;win.CurrentMonitor := this.Monitors[1]
 			}
-			this.FitWindowToTiles(win)
+			; this.FitWindowToTiles(win)  ; do not fit to window tiles on init.. only fit when moving the window around.
 			return 1
 		}
 	}
@@ -393,6 +394,9 @@ LALT + SHIFT + Left/Right = Resize left edge
 		;MsgBox % oaxis
 
         win := this.GetWindow()
+		; must set the current monitor before movement. it's possible to pick up the window and move it manually before retiling.
+		; i.e. reinit the window every time.
+		this.InitWindow(win, true)
 
 		;if (this.InitWindow(win) && this.IgnoreFirstMove){
 			;return
@@ -431,6 +435,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 			} else {
 				new_pos := 1
 				mon := this.GetNextMonitor(mon.id, vector)
+				;MsgBox % "changing monitors from ID: " win.CurrentMonitor.ID  "    To ID: " mon.ID
 				win.CurrentMonitor := mon
 			}
 		} else if (new_pos <= 0){
@@ -456,11 +461,19 @@ LALT + SHIFT + Left/Right = Resize left edge
 				now_pos := win.Pos[axis]
 			} else {
 				mon := this.GetNextMonitor(mon.id, vector)
+				;MsgBox % "changing monitors from ID: " win.CurrentMonitor.ID  "    To ID: " mon.ID
+
 				win.CurrentMonitor := mon
 				new_pos := (mon.TileCount[axis] - win.Span[axis]) + (vector * -1)
 			}
 		}
         Win.Pos[axis] := new_pos
+		if(win.Span[axis] == "" || !win.Span[axis] || win.Span.axis[axis] == 0) {
+			win.Span[axis] := 1
+		}
+		if(win.Span[oaxis] == "" || !win.Span[oaxis] || win.Span.axis[oaxis] == 0) {
+			win.Span[oaxis] := 1
+		}
         this.TileWindow(win)
     }
 	
@@ -752,6 +765,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 		w := (mon.TileSizes.x * win.Span.x) * mon.Scale
 		h := (mon.TileSizes.y * win.Span.y) * mon.Scale
 		
+		
 		; If window is minimized or maximized, restore
 		WinGet, MinMax, MinMax, % "ahk_id " win.hwnd
 		if (MinMax != 0)
@@ -807,16 +821,33 @@ LALT + SHIFT + Left/Right = Resize left edge
 	; Returns the Monitor Index that the center of the window is on
 	GetWindowMonitor(window){
 		; change the logic to check the monitor id using DLL call.
-		c := window.GetCenter()
+		c := window.GetCenter() ; this has caused issues.  may want to revisit this.  if so, use the logic for finding closest monitor to focus on, use distance calc from win center and monitor centers.
+		;c := window.GetCoords()		
+		distance := {}
+
 		Loop % this.monitors.length() {
 			m := this.monitors[A_Index].coords
 			; Is the top-left corner of the window on this monitor?
 			if (c.x >= m.l && c.x <= m.r && c.y >= m.t && c.y <= m.b){
 				return A_Index
 			}
+			distance[A_Index] = abs(m["x"] - c["x"]) + abs(m["y"] - c["y"])
+
 		}
-		return 0
+		; find closest moniotor
+		next:=false
+		for k,v in distance {
+			if (!next) {
+				next:=k
+			} else {
+				if(v < distance[next]) {
+					next:=k
+				}
+			}
+		}
+		return next ? next : 1 ; always set a default if nothing found.
 	}
+	
 	
 	; Returns the Monitor Index that the center of the mouse is on
 	GetMouseMonitor(){
@@ -957,6 +988,14 @@ LALT + SHIFT + Left/Right = Resize left edge
 		Scale := 1
         
         __New(id){
+			; use the offset to tweek the usable space of a tile.
+			; i'm having some really bad scaling issues when trying to move
+			; a window near another monitor with different dpi scaling.
+			; this is a quick fix to the problem.  I.E. changing the usable
+			; area we can snap/tile windows to.
+			global monitorOffset
+			this.monitorOffset := monitorOffset
+			; monitor scale is used when setting x,y,w,h of a tile.
 			global monitorScale
             this.id := id
             this.Coords := this.GetWorkArea()
@@ -968,13 +1007,29 @@ LALT + SHIFT + Left/Right = Resize left edge
 				}
 			}
 
+			;MsgBox % JSON.dump(this)
         }
         
         SetRows(rows){
+			; use the offset to tweek the usable space of a tile.
+			; i'm having some really bad scaling issues when trying to move
+			; a window near another monitor with different dpi scaling.
+			; this is a quick fix to the problem.  I.E. changing the usable
+			; area we can snap/tile windows to.
+			global monitorOffset
+			
+
 			this.TileCoords.y := []
             this.TileCount.y := rows
             this.TileSizes.y := round(this.Coords.h / rows)
             o := this.coords.t
+
+			if(this.monitorOffset.HasKey(this.id)) {
+				this.TileSizes.y := round( (this.Coords.h + round(this.monitorOffset[this.id].y) ) / rows)
+				MsgBox % "assigning y offset for monitor ID"  this.id
+				;this.TileSizes.y += round(this.monitorOffset[this.id].y)
+				o := this.coords.t + round(this.monitorOffset[this.id].y)
+			}
             Loop % rows {
                 this.TileCoords.y.push(o)
                 o += this.TileSizes.y
@@ -982,14 +1037,28 @@ LALT + SHIFT + Left/Right = Resize left edge
         }
         
         SetCols(cols){
+			
+			
 			this.TileCoords.x := []
             this.TileCount.x := cols
             this.TileSizes.x := round(this.Coords.w / cols)
             o := this.coords.l
+
+			if(this.monitorOffset.HasKey(this.id)) {
+				this.TileSizes.x += round(this.monitorOffset[this.id].x)
+	            this.TileSizes.x := round( (this.Coords.w + round(this.monitorOffset[this.id].x)) / cols)
+				o := this.coords.l + round(this.monitorOffset[this.id].x)
+
+			;					MsgBox % "the monitor offset for x   "  JSON.dump(this.monitorOffset[this.id])  " and the current tile size:  " JSON.dump(this.TileSiz)
+
+			}
             Loop % cols {
                 this.TileCoords.x.push(o)
                 o += this.TileSizes.x
             }
+			
+							MsgBox % "current X TileSizes for monitor ID"  this.id   "    data: " JSON.dump(this.TileSizes) 
+
         }
         
         ; Gets the "Work Area" of a monitor (The coordinates of the desktop on that monitor minus the taskbar)
