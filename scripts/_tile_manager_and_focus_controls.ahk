@@ -23,9 +23,12 @@ DetectHiddenWindows, On
 
 
 
+; explicitly set the monitor locations, top, right, bottom, left relative to the monitor ID.
+; this will be used for window focus and moving windows from one monitor to another.
+monitorNeighbors := {1: {l:3}, 2:{b:3}, 3:{t:2, r:1}}
 
 monitorScale := {1: 1 ,2: 0.75, 3: 0.75}
-monitorOffset := {3: {x:-3,y:0,w:0, h:0},  1: {x:10,y:0,w:-10, h:0} }  ; offset to be applied to the tiles coords when moving.  this addresses the issue of scaling windows.  If a window's edge is next to a monitor with different DPI scaling, the monitor with larger scaling will be applied to the window.
+monitorOffset := {3: {x:-8,y:0,w:0, h:0, l:1,r:0,t:0,b:0},  1: {x:0,y:0,w:0, h:0, l:10,r:-10,t:0,b:0} }  ; offset to be applied to the tiles coords when moving.  this addresses the issue of scaling windows.  If a window's edge is next to a monitor with different DPI scaling, the monitor with larger scaling will be applied to the window.
 forceScaleOnMonitors := 0.75  ; testing this.  we have some wonky behavior to address.
 
 
@@ -73,6 +76,8 @@ class SquAeroSnap {
 	AxisToWh := {x: "w", y: "h"}
     
     __New(){
+		global monitorNeighbors
+		this.monNeighbors = monitorNeighbors
 		this.IniFile := RegExReplace(A_ScriptName, "\.exe|\.ahk", ".ini")
 
         Gui, +hwndhwnd
@@ -480,10 +485,21 @@ LALT + SHIFT + Left/Right = Resize left edge
 	FocusWindow(axis, vector, mon := false, loop_count := 0) {
 		position:=0
 		oaxis := axis == "x" ? "y" : "x"
+		edge := "t"
+		if(axis == "y") {
+			edge := "t"
+				if (vector > 0) edge:="b"
+		} else {
+			edge := "l"
+				if (vector > 0) edge:="r"
+		}
 		x1=x1
 		x2=x2
 		y1=y1
 		y2=y2
+		
+		
+		
 		
         win := this.GetWindow()
 		if(!win) {
@@ -1022,14 +1038,11 @@ LALT + SHIFT + Left/Right = Resize left edge
 			this.TileCoords.y := []
             this.TileCount.y := rows
             this.TileSizes.y := round(this.Coords.h / rows)
-            o := this.coords.t
-
 			if(this.monitorOffset.HasKey(this.id)) {
-				this.TileSizes.y := round( (this.Coords.h + round(this.monitorOffset[this.id].y) ) / rows)
 				MsgBox % "assigning y offset for monitor ID"  this.id
-				;this.TileSizes.y += round(this.monitorOffset[this.id].y)
-				o := this.coords.t + round(this.monitorOffset[this.id].y)
+				this.TileSizes.y += round(this.monitorOffset[this.id].y)
 			}
+            o := this.coords.t
             Loop % rows {
                 this.TileCoords.y.push(o)
                 o += this.TileSizes.y
@@ -1042,22 +1055,18 @@ LALT + SHIFT + Left/Right = Resize left edge
 			this.TileCoords.x := []
             this.TileCount.x := cols
             this.TileSizes.x := round(this.Coords.w / cols)
-            o := this.coords.l
-
 			if(this.monitorOffset.HasKey(this.id)) {
 				this.TileSizes.x += round(this.monitorOffset[this.id].x)
-	            this.TileSizes.x := round( (this.Coords.w + round(this.monitorOffset[this.id].x)) / cols)
-				o := this.coords.l + round(this.monitorOffset[this.id].x)
-
 			;					MsgBox % "the monitor offset for x   "  JSON.dump(this.monitorOffset[this.id])  " and the current tile size:  " JSON.dump(this.TileSiz)
 
 			}
+            o := this.coords.l
             Loop % cols {
                 this.TileCoords.x.push(o)
                 o += this.TileSizes.x
             }
 			
-							MsgBox % "current X TileSizes for monitor ID"  this.id   "    data: " JSON.dump(this.TileSizes) 
+			;				MsgBox % "current X TileSizes for monitor ID"  this.id   "    data: " JSON.dump(this.TileSizes) 
 
         }
         
@@ -1073,6 +1082,13 @@ LALT + SHIFT + Left/Right = Resize left edge
             out.r := coords_right
             out.t := coords_top
             out.b := coords_bottom
+			if(this.monitorOffset.HasKey(this.id)) {
+				out.l := coords_left + this.monitorOffset[this.id].l
+				out.r := coords_right+ this.monitorOffset[this.id].r
+				out.t := coords_top + this.monitorOffset[this.id].t
+				out.b := coords_bottom + this.monitorOffset[this.id].b
+			}
+			
             out.w := coords_right - coords_left
             out.h := coords_bottom - coords_top
             out.cx := coords_left + round(out.w / 2)	; center x
@@ -1080,6 +1096,10 @@ LALT + SHIFT + Left/Right = Resize left edge
             out.hw := round(out.w / 2)	; half width
             out.hh := round(out.w / 2)	 ; half height
 			;MsgBox % "ID: " this.id "\n"  JSON.dump(out)
+			
+			if(this.monitorOffset.HasKey(this.id)) {
+					
+			}
 			
 			; trying to scale stuff to correct values.
 			if(out.t != out.l) {
