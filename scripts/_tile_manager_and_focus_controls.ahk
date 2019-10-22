@@ -321,6 +321,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 			win := this.TiledWindows[hwnd]
 		} else {
 			win := new this.CWindow(hwnd)
+			this.InitWindow(win)
         }
         return win
     }
@@ -463,38 +464,68 @@ LALT + SHIFT + Left/Right = Resize left edge
         this.TileWindow(win)
     }
 	
-	FocusWindow(axis, vector) {
+	FocusWindow(axis, vector, mon := false, loop_count := 0) {
+		position:=0
 		oaxis := axis == "x" ? "y" : "x"
 		x1=x1
 		x2=x2
 		y1=y1
 		y2=y2
+		
         win := this.GetWindow()
-			; must check if current focused window is on the same virtual desktop.
-			; this may not be the case if we switch between different virtual desktops.
-			if (!win.IsOnCurrentDesktop(this.IsWindowOnCurrentVirtualDesktopProc)) { 
-				; reassign win to be the center of the monitor.
-				
+		if(!win) {
+			; no window focused.  todo: fix this.
+			MsgBox No Window Focused.
+			return
+		}
+		
+		;MsgBox % JSON.dump(mon)
+		move_mouse := false
+		if(mon) {
+			move_mouse := true
+		}
+		
+		; check if window is on same monitor as mouse
+		; if not change coords to move from.
+		if(win.CurrentMonitor.ID != this.GetMouseMonitor()) {
+			mon := this.monitors[this.GetMouseMonitor()]
+			position := this.GetMouseCoords()
+		} else {
+			if(mon && mon.ID != win.CurrentMonitor.ID) {
+				; we're moving to a different monitor.
+				; nothing to do, leave monitor set to what is provided.
+				; will perform closest neighbor lookup for focus.
+			} else {
+				mon := win.CurrentMonitor   ; this will be problematic,  don't assume momnitor will be the same.
 			}
-		win.c := win.GetCenter()
+			;win.c := win.GetCenter()
+			position := win.GetCenter()
+		}
+		
+		;MsgBox % "moving from: " JSON.dump(position)
+		;MsgBox % JSON.dump(mon)
+
+
+
+		
+
 
 		;if (this.InitWindow(win) && this.IgnoreFirstMove){
 			;return
 		;}
-		new_pos := win.Pos[axis] + vector
-		c := win.GetCenter()
+		;c := win.GetCenter()
 		threshold := 50 ; number of pixels in x or y to qualify as same centerpoint.
 		;threshold_range
-		tr := { x1 : c["x"]-threshold, x2: c["x"]+threshold, y1:c["y"]-threshold, y2:c["y"]+threshold }
+		tr := { x1 : position["x"]-threshold, x2: position["x"]+threshold, y1:position["y"]-threshold, y2:position["y"]+threshold }
 		
 		focus_window := false
 		
-		;MsgBox % JSON.dump(c)
-		mon := win.CurrentMonitor   ; this will be problematic,  don't assume momnitor will be the same.
+		
 		;MsgBox % JSON.dump(win)
 		;MsgBox % JSON.dump(mon)
-		windows := []
-		windows_on_center := []
+		stacked_windows := []
+		has_stacked_window := false ; AHK doesn't have a simple way to check if this list is empty =?
+		;windows_on_center := []
 		; GET ALL WINDOWS 
 		
 		; tie-breaking rules.
@@ -503,8 +534,9 @@ LALT + SHIFT + Left/Right = Resize left edge
 		
 		; check if we need to switch monitors in relation to axis and vector.
 		;MsgBox % JSON.dump(this.TiledWindows)
-		
+		has_windows := false
 		for win_hwnd, w in this.TiledWindows {
+			has_windows := true
 			; must check if this window is on the same virtual desktop.
 			if (!w.IsOnCurrentDesktop(this.IsWindowOnCurrentVirtualDesktopProc)) { 
 				continue
@@ -523,12 +555,14 @@ LALT + SHIFT + Left/Right = Resize left edge
 					;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 					;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 					if(w.c[axis] >= tr[%axis%1] && w.c[axis] <= tr[%axis%2] && w.c[oaxis] >= tr[%oaxis%1] && w.c[oaxis] <= tr[%oaxis%2] && w.hwnd < win.hwnd && vector < 0) {
-						windows.push(win)
+						stacked_windows.push(win)
+						has_stacked_window := true
 						;MsgBox % "vector --" tr[%axis%1]
 						continue
 					}
 					if(w.c[axis] >= tr[%axis%1] && w.c[axis] <= tr[%axis%2] && w.c[oaxis] >= tr[%oaxis%1] && w.c[oaxis] <= tr[%oaxis%2] && w.hwnd > win.hwnd && vector > 0) {
-						windows.push(win)
+						stacked_windows.push(win)
+						has_stacked_window := true
 						;MsgBox % "vector ++" tr[%axis%1]
 						continue
 					}
@@ -538,36 +572,37 @@ LALT + SHIFT + Left/Right = Resize left edge
 					;
 					; now check if window is in path of vector.
 					; and obtain the distance to each window.
-					if(vector > 0) {
-						; vector ++
-						if(w.c[axis] > win.c[axis]) {
-							; determine distance
-							w.distance := abs(w.c[axis] - win.c[axis]) + abs(w.c[oaxis] - win.c[oaxis])
-							windows.push(w)
-							if(!focus_window) {
-								; assign the first window as first to focus.
-								focus_window := w
-							} else if (w.distance < focus_window.distance) {
-								focus_window := w
+					if(!has_stacked_window) {
+						if(vector > 0) {
+							; vector ++
+							if(w.c[axis] > win.c[axis]) {
+								; determine distance
+								w.distance := abs(w.c[axis] - win.c[axis]) + abs(w.c[oaxis] - win.c[oaxis])
+								;windows.push(w)
+								if(!focus_window) {
+									; assign the first window as first to focus.
+									focus_window := w
+								} else if (w.distance < focus_window.distance) {
+									focus_window := w
+								}
 							}
-						}
-						
 							
-					} else {
-						; vector --
-						if(w.c[axis] < win.c[axis]) {
-							; determine distance
-							w.distance := abs(w.c[axis] - win.c[axis]) + abs(w.c[oaxis] - win.c[oaxis])
-							windows.push(w)
-							if(!focus_window) {
-								; assign the first window as first to focus.
-								focus_window := w
-							} else if (w.distance < focus_window.distance) {
-								focus_window := w
+								
+						} else {
+							; vector --
+							if(w.c[axis] < win.c[axis]) {
+								; determine distance
+								w.distance := abs(w.c[axis] - win.c[axis]) + abs(w.c[oaxis] - win.c[oaxis])
+								;windows.push(w)
+								if(!focus_window) {
+									; assign the first window as first to focus.
+									focus_window := w
+								} else if (w.distance < focus_window.distance) {
+									focus_window := w
+								}
 							}
 						}
 					}
-					
 					;if(w.c[axis] )
 					
 					
@@ -577,18 +612,61 @@ LALT + SHIFT + Left/Right = Resize left edge
 			
 		}
 		
-		for key, win in windows {
-			
+		if(!has_windows) {
+			; move cursor to this monitor's center.
+			DllCall("SetCursorPos", int, mon.Coords.cx, int, mon.Coords.cy)
+			return
+		}
+		
+		if(has_stacked_window) {
+			focus_window = false
+			for key, win in stacked_windows {
+				; windows is a list of 
+				if(!focus_window) {
+					focus_window := win
+				} else {
+					if(vector > 0 && win.hwnd > focus_window.hwnd) {
+						focus_window := win
+					} else if (vector < 0 && win.hwnd < focus_window.hwnd) {
+						focus_window := win
+					}
+				}
+				
+			}
 		}
 			
 		; MsgBox % JSON.dump(windows)
 		;MsgBox % JSON.dump(focus_window)
 		if(focus_window) {
-		
-					WinActivate, % "ahk_id " focus_window.hwnd
+			;move the mouse.
+			if(move_mouse) {
+				;MsgBox % JSON.dump(mon)
+				;MsgBox % "moving mouse   "  mon.cx "  y:  " mon.cy
+				DllCall("SetCursorPos", int, mon.Coords.cx, int, mon.Coords.cy)
+				;MouseMove mon.cx, mon.cy
+				;mousemove, mon.cx, mon.cy
+			}
+			DllCall( "FlashWindow", UInt, focus_window.hwnd, Int,True )
+			WinActivate, % "ahk_id " focus_window.hwnd
+		} else {
+			; todo
+			; add focus to next monitor.
+			;MsgBox running again
+			;MsgBox % JSON.dump(win)
+			mon := this.GetNextMonitor(mon.id, vector)
+			DllCall("SetCursorPos", int, mon.Coords.cx, int, mon.Coords.cy)
 
+			;MsgBox % "Next Mon      " JSON.dump(mon)
+			; we have to check if there are any windows on this monitor,
+			; if not, set 
+			loop_count ++
+			if(loop_count < 30) {
+				this.FocusWindow(axis, vector, mon, loop_count)
+			} else {
+				MsgBox Error focusing to different window, try a different direction.
+			}
+			
 		}
-		
 
 	}
 	
@@ -739,7 +817,20 @@ LALT + SHIFT + Left/Right = Resize left edge
 		}
 		return 0
 	}
-
+	
+	; Returns the Monitor Index that the center of the mouse is on
+	GetMouseMonitor(){
+		; change the logic to check the monitor id using DLL call.
+		c := this.GetMouseCoords()
+		Loop % this.monitors.length() {
+			m := this.monitors[A_Index].coords
+			; Is the top-left corner of the window on this monitor?
+			if (c.x >= m.l && c.x <= m.r && c.y >= m.t && c.y <= m.b){
+				return A_Index
+			}
+		}
+		return 0
+	}
 
 
 	; --------------------------------------Window Discovery--------------------------
@@ -755,8 +846,19 @@ LALT + SHIFT + Left/Right = Resize left edge
 		;MsgBox % JSON.dump(windows)
 	}
 	
+	
+	
+	GetMouseCoords() {
+		CoordMode, Mouse, Screen
+		MouseGetPos, xpos, ypos
+		return {x: xpos, y:ypos}
+	}
+	
 	debugVisibleWindows() {
 		win := this.GetWindow()
+		CoordMode, Mouse, Screen
+		MouseGetPos, xpos, ypos 
+		MsgBox % "Mouse --  x: " xpos "   y: " ypos "   mon.ID: " this.GetMouseMonitor()
 		MsgBox % JSON.dump(win)
 		MsgBox % JSON.dump(win.GetCoords())
 		MsgBox % JSON.dump(win.GetLocalCoords())
@@ -858,8 +960,8 @@ LALT + SHIFT + Left/Right = Resize left edge
 			global monitorScale
             this.id := id
             this.Coords := this.GetWorkArea()
-			asdf := DllCall("GetDpiForMonitor", "UInt", this.id)
-			MsgBox % JSON.dump(asdf)
+			;test := DllCall("GetDpiForMonitor", "UInt", this.id)  ;
+			;MsgBox % JSON.dump(test)
 			for k,v in monitorScale {
 				if(k==this.id) {
 					this.Scale := v
