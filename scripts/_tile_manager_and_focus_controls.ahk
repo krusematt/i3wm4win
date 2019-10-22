@@ -3,6 +3,30 @@
 
 ;GoSub, ConfigMinimizeToTray
 DetectHiddenWindows, On
+ 
+
+;DllCall("EnumDisplayMonitors", "ptr", 0, "ptr", 0, "ptr", RegisterCallback("MonitorEnumProc", "", 4), "uint", 0)
+
+;MonitorEnumProc(hMonitor, hdcMonitor, lprcMonitor, dwData) {
+;	MsgBox % "Left: " . NumGet(lprcMonitor+0, 0, "int") . " -- "
+;		. "Top: " . NumGet(lprcMonitor+0, 4, "int") . " -- " 
+;		. "Right: " . NumGet(lprcMonitor+0, 8, "int") . " -- " 
+;		. "Bottom: " . NumGet(lprcMonitor+0, 12, "int")
+;	return 1
+;}
+
+
+
+
+
+
+
+
+
+
+monitorScale := {2: 0.75, 3: 0.75}
+forceScaleOnMonitors := 0.75  ; testing this.  we have some wonky behavior to address.
+
 
 global sqas := new SquAeroSnap()
 ;return
@@ -42,6 +66,7 @@ class SquAeroSnap {
     Monitors := []
     TiledWindows := {}
 	IgnoreFirstMove := 0
+	ForceMonitorCoords := 0
 	
 	Axes := {x: 1, y: 2}
 	AxisToWh := {x: "w", y: "h"}
@@ -82,6 +107,7 @@ class SquAeroSnap {
         Loop % this.MonitorCount {
             this.Monitors.push(new this.CMonitor(A_Index))
         }
+		MsgBox % JSON.dump(this.Monitors)
 
         if (this.MonitorOrder.length() != this.MonitorCount){
 			this.SetupMonitorLayout()
@@ -317,6 +343,10 @@ LALT + SHIFT + Left/Right = Resize left edge
 		} else {
             this.TiledWindows[win.hwnd] := win
 			win.CurrentMonitor := this.Monitors[this.GetWindowMonitor(win)]
+			if(!win.CurrentMonitor) {
+				; lets default monitor 1!
+				;win.CurrentMonitor := this.Monitors[1]
+			}
 			this.FitWindowToTiles(win)
 			return 1
 		}
@@ -638,11 +668,11 @@ LALT + SHIFT + Left/Right = Resize left edge
 	; Request a window be placed in its designated tile
 	TileWindow(win){
         mon := win.CurrentMonitor
-		
-		x := mon.TileCoords.x[win.Pos.x]
-		y := mon.TileCoords.y[win.Pos.y]
-		w := (mon.TileSizes.x * win.Span.x)
-		h := (mon.TileSizes.y * win.Span.y)
+		;  if current monitor has a scale, adjust accordingly.
+		x := mon.TileCoords.x[win.Pos.x] * mon.Scale
+		y := mon.TileCoords.y[win.Pos.y] * mon.Scale
+		w := (mon.TileSizes.x * win.Span.x) * mon.Scale
+		h := (mon.TileSizes.y * win.Span.y) * mon.Scale
 		
 		; If window is minimized or maximized, restore
 		WinGet, MinMax, MinMax, % "ahk_id " win.hwnd
@@ -698,6 +728,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 	
 	; Returns the Monitor Index that the center of the window is on
 	GetWindowMonitor(window){
+		; change the logic to check the monitor id using DLL call.
 		c := window.GetCenter()
 		Loop % this.monitors.length() {
 			m := this.monitors[A_Index].coords
@@ -725,6 +756,12 @@ LALT + SHIFT + Left/Right = Resize left edge
 	}
 	
 	debugVisibleWindows() {
+		win := this.GetWindow()
+		MsgBox % JSON.dump(win)
+		MsgBox % JSON.dump(win.GetCoords())
+		MsgBox % JSON.dump(win.GetLocalCoords())
+		return
+		
 		for key, windowID in this.AltTabWindows() {
 			win := this.GetWindowByHwnd(windowID)
 			MsgBox % JSON.dump(win)
@@ -815,10 +852,20 @@ LALT + SHIFT + Left/Right = Resize left edge
         TileCoords := {x: [], y: []}
         TileSizes := {x: 0, y: 0}
         TileCount := {x: 2, y: 2}
+		Scale := 1
         
         __New(id){
+			global monitorScale
             this.id := id
             this.Coords := this.GetWorkArea()
+			asdf := DllCall("GetDpiForMonitor", "UInt", this.id)
+			MsgBox % JSON.dump(asdf)
+			for k,v in monitorScale {
+				if(k==this.id) {
+					this.Scale := v
+				}
+			}
+
         }
         
         SetRows(rows){
@@ -846,6 +893,9 @@ LALT + SHIFT + Left/Right = Resize left edge
         ; Gets the "Work Area" of a monitor (The coordinates of the desktop on that monitor minus the taskbar)
         ; also pre-calculates a few values derived from the coordinates
         GetWorkArea(){
+			global forceScaleOnMonitors
+			
+
             SysGet, coords_, MonitorWorkArea, % this.id
             out := {}
             out.l := coords_left
@@ -858,6 +908,23 @@ LALT + SHIFT + Left/Right = Resize left edge
             out.cy := coords_top + round(out.h / 2)		; center y
             out.hw := round(out.w / 2)	; half width
             out.hh := round(out.w / 2)	 ; half height
+			;MsgBox % "ID: " this.id "\n"  JSON.dump(out)
+			
+			; trying to scale stuff to correct values.
+			if(out.t != out.l) {
+				
+					for k, v in out {
+						if (v != 0) {
+														;MsgBox % k " -- " v
+
+								;out[k] := round(v*forceScaleOnMonitors)
+						}
+							
+					}
+							
+			}
+						;MsgBox % JSON.dump(out)
+
             return out
         }
     }
@@ -870,8 +937,11 @@ LALT + SHIFT + Left/Right = Resize left edge
         
 		AxisToOriginEdge := {x: "l", y: "t"}
 		Axes := {x: 1, y: 2}
+		scale := 1
 
         __New(hwnd){
+			global forceScaleOnMonitors
+			this.scale := forceScaleOnMonitors
             this.hwnd := hwnd
         }
         
@@ -1042,4 +1112,14 @@ Decimal_to_Hex(var)
     var += 0
     Setformat, integer, d
     return var
+}
+
+
+HasVal(haystack, needle) {
+	for index, value in haystack
+		if (value = needle)
+			return index
+	if !IsObject(haystack)
+		throw Exception("Bad haystack!", -1, haystack)
+	return 0
 }
