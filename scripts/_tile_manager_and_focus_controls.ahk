@@ -230,17 +230,17 @@ class SquAeroSnap {
 		hotkey, <!f, % fn
 		
 		
-		;fn := this.SizeWindow.Bind(this, "x", 1, 1)
-		;hotkey, <!^;, % fn
+		fn := this.SizeWindow.Bind(this, "x", -1, -1)
+		hotkey, <!^j, % fn
 		
-		;fn := this.SizeWindow.Bind(this, "x", 1, -1)
-		;hotkey, <!^j, % fn
+		fn := this.SizeWindow.Bind(this, "y", -1, -1)
+		hotkey, <!^k, % fn
 		
-		;fn := this.SizeWindow.Bind(this, "x", -1, 1)
-		;hotkey, <!+;, % fn
+		fn := this.SizeWindow.Bind(this, "y", 1, 1)
+		hotkey, <!^l, % fn
 		
-		;fn := this.SizeWindow.Bind(this, "x", -1, -1)
-		;hotkey, <!+j, % fn
+		fn := this.SizeWindow.Bind(this, "x", 1, 1)
+		hotkey, <!^;, % fn
 		
 		;fn := this.SizeWindow.Bind(this, "y", 1, 1)
 		;hotkey, <!^k, % fn
@@ -645,13 +645,13 @@ LALT + SHIFT + Left/Right = Resize left edge
 		
 		new_pos := win.Pos[axis], new_span := win.Span[axis]
 		
-		if (edge == -1){
+		if (edge == -1){ ; moving left
 			; Change in span causes change in pos
 			if ((vector == 1 && win.Span[axis] != 1) || (vector == -1 && win.Pos[axis] != 1)){
 				new_span += (vector * -1)
 				new_pos += vector
 			}
-		} else {
+		} else { ; moving right
 			new_span += (vector * edge)
 		}
 		if ((new_span == 0) || ((new_pos + new_span - 1) > mon.TileCount[axis])){
