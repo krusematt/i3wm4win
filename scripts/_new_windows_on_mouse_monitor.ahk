@@ -12,7 +12,7 @@ MsgNum := DllCall( "RegisterWindowMessage", Str,"SHELLHOOK" )
 OnMessage( MsgNum, "ShellMessage" )
 Return
 
-	
+
 ShellMessage( wParam,lParam ) {
 	global sqas
   If ( wParam = 1 ) ;  HSHELL_WINDOWCREATED := 1

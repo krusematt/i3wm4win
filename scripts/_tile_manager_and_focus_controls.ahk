@@ -29,7 +29,9 @@ monitorNeighbors := {1: {l:3}, 2:{b:3}, 3:{t:2, r:1}}
 
 monitorScale := {1: 1 ,2: 0.75, 3: 0.75}
 monitorOffset := {3: {x:-8,y:0,w:0, h:0, l:1,r:0,t:0,b:0},  1: {x:0,y:0,w:0, h:0, l:10,r:-10,t:0,b:0} }  ; offset to be applied to the tiles coords when moving.  this addresses the issue of scaling windows.  If a window's edge is next to a monitor with different DPI scaling, the monitor with larger scaling will be applied to the window.
-forceScaleOnMonitors := 0.75  ; testing this.  we have some wonky behavior to address.
+forceScaleOnMonitors := 0.75  ; testing this.  we have some wonky behavior to address.; don't believe we're using this.
+
+sizeIncriment:=100  ; number of px to move the window.
 
 
 global sqas := new SquAeroSnap()
@@ -236,16 +238,16 @@ class SquAeroSnap {
 		hotkey, <!f, % fn
 		
 		
-		fn := this.SizeWindow.Bind(this, "x", -1, -1)
+		fn := this.SizeWindow.Bind(this, "x", -1)
 		hotkey, <!^j, % fn
 		
-		fn := this.SizeWindow.Bind(this, "y", -1, -1)
+		fn := this.SizeWindow.Bind(this, "y", 1) ; vector is switched for y axis due to how the px coordinates work.
 		hotkey, <!^k, % fn
 		
-		fn := this.SizeWindow.Bind(this, "y", 1, 1)
+		fn := this.SizeWindow.Bind(this, "y", -1) ; vector is flipped.
 		hotkey, <!^l, % fn
 		
-		fn := this.SizeWindow.Bind(this, "x", 1, 1)
+		fn := this.SizeWindow.Bind(this, "x", 1)
 		hotkey, <!^;, % fn
 		
 		;fn := this.SizeWindow.Bind(this, "y", 1, 1)
@@ -779,35 +781,45 @@ LALT + SHIFT + Left/Right = Resize left edge
     }
     
 	; Sizes a window by moving and edge along a specific axis in the direction of a specified vector
-    SizeWindow(axis, edge, vector){
+	; Edge priority: right & bottom.   If the edge of the dominate edge is >= the coorisponding edge of the monitor, switch edge.
+    SizeWindow(axis, vector){
+		
+		global sizeIncriment
         win := this.GetWindow()
-		
-		if (this.InitWindow(win) && this.IgnoreFirstMove){
-			return
-		}
-
 		mon := win.CurrentMonitor
+		m:=mon.Coords
+		w:=win.GetCoords()
+		; 
 		
-		new_pos := win.Pos[axis], new_span := win.Span[axis]
+		; todo: if full screen return!
+		if(axis == "x") {
+			width := w.w + ((vector * mon.Scale) * sizeIncriment)
+			height := w.h
+		} else {
+			width := w.w
+			height := w.h + ((vector * mon.Scale) * sizeIncriment)
+		}
+		x := w.x
+		y := w.y
 		
-		if (edge == -1){ ; moving left
-			; Change in span causes change in pos
-			if ((vector == 1 && win.Span[axis] != 1) || (vector == -1 && win.Pos[axis] != 1)){
-				new_span += (vector * -1)
-				new_pos += vector
+		if(win.Pos[axis] == mon.TileCount[axis] && vector > 0) {			
+			;vector := -vector   ;change the vector negative, to push the left edge of the window left.  simulates increasing the width of the window off the right edge.
+			if(axis == "x") {
+				x := w.x - ((vector * mon.Scale) * sizeIncriment)
+			} else {
+				y := w.y - ((vector * mon.Scale) * sizeIncriment)
 			}
-		} else { ; moving right
-			new_span += (vector * edge)
+		} else if(win.Pos[axis] == mon.TileCount[axis] && vector < 0) {
+			if(axis == "x") {
+				; change x
+				x := w.x - ((vector * mon.Scale) * sizeIncriment)
+
+			}
 		}
-		if ((new_span == 0) || ((new_pos + new_span - 1) > mon.TileCount[axis])){
-			return
-		}
-       
-		;~ OutputDebug % "AHK| SIZE - Axis: " axis ", Edge: " edge ", Vector: " vector " / New Span: " new_span ", New Pos: " new_pos
-		
-		win.Span[axis] := new_span, win.Pos[axis] := new_pos
-		
-        this.TileWindow(win)
+		;MsgBox % axis "   " vector " x:" x " y:" y " w:" width " h:" height "         " JSON.dump(w)
+		WinMove, % "ahk_id " win.hwnd, , % x, % y, % width, % height
+ 
+		;Window_move(win.hwnd, x, y, w, h)
     }
 	
 	; Request a window be placed in its designated tile
