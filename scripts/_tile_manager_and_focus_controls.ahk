@@ -267,8 +267,16 @@ class SquAeroSnap {
 		fn := this.ReInitActiveWindow.Bind(this)
 		hotkey, +<!t, % fn
 		
+		; close active window.
+		fn := this.CloseWindow.Bind(this)
+		hotkey, +<!q, % fn
+		
 		this.SetHotkeyInstructions()
     }
+	
+	CloseWindow() {
+		Send, !{F4}
+	}
 	
 	; Updates the Gui to show hotkeys
 	SetHotkeyInstructions(){
@@ -395,6 +403,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 	}
 	
 	; Moves a window along a specified axis in the direction of a specified vector
+	; if window is fullscreen, push to next monitor.
     MoveWindow(axis, vector){
 		oaxis := axis == "x" ? "y" : "x"
 		;MsgBox % oaxis
@@ -404,13 +413,34 @@ LALT + SHIFT + Left/Right = Resize left edge
 		; i.e. reinit the window every time.
 		this.InitWindow(win, true)
 
+
+
 		;if (this.InitWindow(win) && this.IgnoreFirstMove){
 			;return
 		;}
 		mon := win.CurrentMonitor
 		;MsgBox % JSON.dump(win)
 		;MsgBox % JSON.dump(mon)
-		
+
+
+
+
+		; check for full screen.
+		win := this.GetWindow()
+		mon := win.CurrentMonitor
+		WinGet, MinMax, MinMax, % "ahk_id " win.hwnd
+		if (MinMax == 1) {
+			; window is maximized.
+			mon := this.GetNextMonitor(mon.id, axis, vector)
+			if(mon) {
+				win.CurrentMonitor := mon
+		        this.TileWindow(win)  ; moves window to next monitor
+				WinMaximize, % "ahk_id " win.hwnd  ; maximize it again.
+			}
+			return
+		}
+
+
 		new_pos := win.Pos[axis] + vector
 		; --- quick hack to allow for either vertical split or horizontal split.
 		; --- upcoming refactor will have more robust window tiling management.
@@ -482,7 +512,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 		}
         this.TileWindow(win)
     }
-	
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	FocusWindow(axis, vector, mon := false, loop_count := 0) {
 		position:=0
 		oaxis := axis == "x" ? "y" : "x"
@@ -736,22 +766,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 	
     FullScreenWindow(){
         win := this.GetWindow()
-		
-		;if (this.InitWindow(win) && this.IgnoreFirstMove){
-			;return
-		;}
-		
 		mon := win.CurrentMonitor
-		;MsgBox % JSON.dump(win.hwnd)
-		
-		;MsgBox % JSON.dump(this.Monitors)
-		
-		;this.Monitors[win.CurrentMonitor]
-		;Window_move(win.hwnd, x, y, width, height)
-		;MsgBox % win.hwnd
-		;new_pos := win.Pos[axis] + vector
-		;Window_move(win.hwnd, this.Monitors[win.CurrentMonitor]["t"], this.Monitors[win.CurrentMonitor]["l"], this.Monitors[win.CurrentMonitor]["w"], this.Monitors[win.CurrentMonitor]["h"])
-		
 		WinGet, MinMax, MinMax, % "ahk_id " win.hwnd
 		if (MinMax == 1) {
 			;MsgBox % JSON.dump(win)

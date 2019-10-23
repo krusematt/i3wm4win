@@ -29,4 +29,7 @@
 ; for now -- up and down should behave like shift+down, as we're in select text mode at the time we invoke this hotkey
 +^>!k::Send, {Shift down}{Down down}{Down up}{Shift up}
 +^>!l::Send, {Shift down}{Up down}{Up up}{Shift up}
+;;;; quite active window
++<^q::WinClose A
+
 ; :todo,  make this configurable.
