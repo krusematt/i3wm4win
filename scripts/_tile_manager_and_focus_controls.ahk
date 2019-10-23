@@ -560,13 +560,17 @@ LALT + SHIFT + Left/Right = Resize left edge
 		;MsgBox % JSON.dump(this.TiledWindows)
 		has_windows := false
 		this.InitializeAllWindows()
+		monitor_window_count:= {}
 		for win_hwnd, w in this.TiledWindows {
 			; must check if this window is on the same virtual desktop.
 			if (!w.IsOnCurrentDesktop(this.IsWindowOnCurrentVirtualDesktopProc)) { 
 				continue
 			}
 			has_windows := true
-
+			if(!monitor_window_count.HasKey(mon.ID)) {
+				monitor_window_count[mon.ID] = 0
+			}
+			monitor_window_count[mon.ID] ++
 			;MsgBox % JSON.dump(w)
 				if (w.CurrentMonitor.ID == mon.ID &&  w.hwnd != win.hwnd) { 
 					; filter list down only whats eligible for focus.
@@ -643,7 +647,19 @@ LALT + SHIFT + Left/Right = Resize left edge
 		
 		if(!has_windows) {
 			; move cursor to this monitor's center.
+			mon := this.GetNextMonitor(mon.id, axis, vector)
+
 			DllCall("SetCursorPos", int, mon.Coords.cx, int, mon.Coords.cy)
+
+			;MsgBox % "Next Mon      " JSON.dump(mon)
+			; we have to check if there are any windows on this monitor,
+			; if not, set 
+			loop_count ++
+			if(loop_count < 3) {
+				this.FocusWindow(axis, vector, mon, loop_count)
+			} else {
+				;MsgBox Error focusing to different window, try a different direction.
+			}
 			return
 		}
 		
@@ -671,26 +687,25 @@ LALT + SHIFT + Left/Right = Resize left edge
 			if(move_mouse) {
 				;MsgBox % JSON.dump(mon)
 				;MsgBox % "moving mouse   "  mon.cx "  y:  " mon.cy
-				DllCall("SetCursorPos", int, mon.Coords.cx, int, mon.Coords.cy)
+				DllCall("SetCursorPos", int, focus_window.c.x, int, focus_window.c.y)
 				;MouseMove mon.cx, mon.cy
 				;mousemove, mon.cx, mon.cy
 			}
 			DllCall( "FlashWindow", UInt, focus_window.hwnd, Int,True )
 			WinActivate, % "ahk_id " focus_window.hwnd
+			
+		} else if (move_mouse) { 
+				DllCall("SetCursorPos", int, mon.Coords.cx, int, mon.Coords.cy)
+
 		} else {
 			; todo
 			; add focus to next monitor.
 			;MsgBox running again
 			;MsgBox % JSON.dump(win)
 			
-			; vector in move window relative to each monitor, wherease this vector is relative to coords.  in this case, y should be flipped.
-			if(axis == "y") {
-				;MsgBox % vector " " -vector
-				mon := this.GetNextMonitor(mon.id, axis, vector)
-				;MsgBox % "the new monitor ID: " mon.ID 
-			} else {
-				mon := this.GetNextMonitor(mon.id, axis, vector)
-			}
+			
+			mon := this.GetNextMonitor(mon.id, axis, vector)
+
 			DllCall("SetCursorPos", int, mon.Coords.cx, int, mon.Coords.cy)
 
 			;MsgBox % "Next Mon      " JSON.dump(mon)
@@ -698,11 +713,7 @@ LALT + SHIFT + Left/Right = Resize left edge
 			; if not, set 
 			loop_count ++
 			if(loop_count < 3) {
-				if(axis == "y") {
-					this.FocusWindow(axis, vector, mon, loop_count)
-				} else {
-					this.FocusWindow(axis, vector, mon, loop_count)
-				}
+				this.FocusWindow(axis, vector, mon, loop_count)
 			} else {
 				;MsgBox Error focusing to different window, try a different direction.
 			}

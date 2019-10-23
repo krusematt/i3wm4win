@@ -56,7 +56,7 @@ class i3wm4win_bootstrap {
 				IniRead, iniVal, % this.IniFile, Settings, %key%
 				if (iniVal != "ERROR"){
 					this.settings[key] := iniVal
-					MsgBox %key% = %iniVal%
+					;MsgBox %key% = %iniVal%
 				}
 			}
 		}
@@ -80,3 +80,4 @@ class i3wm4win_bootstrap {
 #Include %A_ScriptDir%\scripts\_launcher.ahk
 #Include %A_ScriptDir%\scripts\_terminal.ahk
 #Include %A_ScriptDir%\scripts\_ctrl_caps_swap.ahk
+#Include %A_ScriptDir%\scripts\_new_windows_on_mouse_monitor.ahk
